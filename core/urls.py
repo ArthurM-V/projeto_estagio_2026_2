@@ -6,6 +6,11 @@ from . import views
 urlpatterns = [
     path("", views.home, name="home"),
     path(
+        "horarios-disponiveis/",
+        views.horarios_disponiveis_view,
+        name="horarios_disponiveis",
+    ),
+    path(
         "login/",
         auth_views.LoginView.as_view(template_name="core/login.html"),
         name="login",
