@@ -1,0 +1,169 @@
+{% extends "core/base.html" %}
+
+{% block title %}Painel administrativo | SmartHealth{% endblock %}
+
+{% block header %}
+  <header class="border-b border-slate-200 bg-white">
+    <nav class="mx-auto flex max-w-7xl items-center justify-between gap-4 px-5 py-4 lg:px-8" aria-label="Navegação administrativa">
+      <a href="{% url 'dashboard' %}" class="flex min-w-0 items-center gap-3" aria-label="SmartHealth - Painel administrativo">
+        <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary-600 text-xl font-bold text-white shadow-sm">+</span>
+        <span class="min-w-0">
+          <span class="block truncate text-lg font-bold tracking-tight text-primary-800">SmartHealth</span>
+          <span class="block truncate text-xs font-medium text-slate-500">Painel administrativo</span>
+        </span>
+      </a>
+
+      <div class="flex items-center gap-2 sm:gap-4">
+        <a href="{% url 'home' %}" class="hidden text-sm font-semibold text-slate-600 transition hover:text-primary-700 sm:inline">Ver página pública</a>
+        <div class="hidden h-8 w-px bg-slate-200 sm:block"></div>
+        <div class="hidden text-right md:block">
+          <p class="text-sm font-semibold text-slate-800">{{ user.get_full_name|default:user.username }}</p>
+          <p class="text-xs text-slate-500">Equipe SmartHealth</p>
+        </div>
+        <form method="post" action="{% url 'logout' %}">
+          {% csrf_token %}
+          <button type="submit" class="rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700 transition hover:border-primary-600 hover:text-primary-700">
+            Sair
+          </button>
+        </form>
+      </div>
+    </nav>
+  </header>
+{% endblock %}
+
+{% block content %}
+  <section class="mx-auto max-w-7xl px-5 py-8 lg:px-8 lg:py-10">
+    <div class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+      <div>
+        <p class="text-sm font-bold uppercase tracking-[0.18em] text-primary-700">Visão geral</p>
+        <h1 class="mt-2 text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">Agenda de consultas</h1>
+        <p class="mt-3 text-sm leading-6 text-slate-600">Acompanhe as solicitações recebidas e a programação da clínica.</p>
+      </div>
+      <a href="{% url 'home' %}#agendamento" class="inline-flex items-center justify-center rounded-xl bg-primary-600 px-4 py-3 text-sm font-bold text-white shadow-sm transition hover:bg-primary-700">
+        Nova solicitação
+      </a>
+    </div>
+
+    <div class="mt-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <article class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+        <p class="text-sm font-medium text-slate-500">Total de consultas</p>
+        <p class="mt-2 text-3xl font-bold text-slate-900">{{ total_consultas }}</p>
+      </article>
+      <article class="rounded-2xl border border-amber-100 bg-amber-50 p-5">
+        <p class="text-sm font-medium text-amber-800">Pendentes</p>
+        <p class="mt-2 text-3xl font-bold text-amber-900">{{ pendentes }}</p>
+      </article>
+      <article class="rounded-2xl border border-emerald-100 bg-emerald-50 p-5">
+        <p class="text-sm font-medium text-emerald-800">Confirmadas</p>
+        <p class="mt-2 text-3xl font-bold text-emerald-900">{{ confirmadas }}</p>
+      </article>
+      <article class="rounded-2xl border border-sky-100 bg-sky-50 p-5">
+        <p class="text-sm font-medium text-sky-800">Consultas hoje</p>
+        <p class="mt-2 text-3xl font-bold text-sky-900">{{ consultas_hoje }}</p>
+      </article>
+    </div>
+
+    <section class="mt-10">
+      <div class="flex flex-col gap-4 border-b border-slate-200 pb-5 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h2 class="text-xl font-bold text-slate-900">Consultas</h2>
+          <p class="mt-1 text-sm text-slate-600">Ordenadas da mais próxima para a mais distante.</p>
+        </div>
+
+        <div class="flex max-w-full gap-2 overflow-x-auto pb-1" aria-label="Filtrar consultas por status">
+          <a href="{% url 'dashboard' %}" class="shrink-0 rounded-full px-3 py-2 text-sm font-semibold transition {% if not status_atual %}bg-primary-600 text-white{% else %}bg-white text-slate-600 ring-1 ring-inset ring-slate-200 hover:text-primary-700{% endif %}">Todas</a>
+          {% for valor, rotulo in status_choices %}
+            <a href="{% url 'dashboard' %}?status={{ valor }}" class="shrink-0 rounded-full px-3 py-2 text-sm font-semibold transition {% if status_atual == valor %}bg-primary-600 text-white{% else %}bg-white text-slate-600 ring-1 ring-inset ring-slate-200 hover:text-primary-700{% endif %}">{{ rotulo }}</a>
+          {% endfor %}
+        </div>
+      </div>
+
+      {% if consultas %}
+        <div class="mt-6 hidden overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm md:block">
+          <table class="w-full min-w-[820px] text-left">
+            <thead class="bg-slate-50 text-xs font-bold uppercase tracking-wider text-slate-500">
+              <tr>
+                <th scope="col" class="px-6 py-4">Paciente</th>
+                <th scope="col" class="px-6 py-4">Profissional</th>
+                <th scope="col" class="px-6 py-4">Data e horário</th>
+                <th scope="col" class="px-6 py-4">Status</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100">
+              {% for consulta in consultas %}
+                <tr class="transition hover:bg-slate-50">
+                  <td class="px-6 py-4">
+                    <p class="font-semibold text-slate-800">{{ consulta.paciente.nome }}</p>
+                    <p class="mt-0.5 text-sm text-slate-500">{{ consulta.paciente.email }}</p>
+                  </td>
+                  <td class="px-6 py-4">
+                    <p class="font-medium text-slate-800">Dr(a). {{ consulta.medico.nome }}</p>
+                    <p class="mt-0.5 text-sm text-slate-500">{{ consulta.medico.especialidade.nome }}</p>
+                  </td>
+                  <td class="px-6 py-4 text-sm text-slate-700">
+                    <p class="font-semibold">{{ consulta.data_horario|date:"d/m/Y" }}</p>
+                    <p class="mt-0.5 text-slate-500">{{ consulta.data_horario|time:"H:i" }}</p>
+                  </td>
+                  <td class="px-6 py-4">
+                    {% if consulta.status == "pendente" %}
+                      <span class="inline-flex rounded-full bg-amber-100 px-3 py-1 text-xs font-bold text-amber-800">Pendente</span>
+                    {% elif consulta.status == "confirmada" %}
+                      <span class="inline-flex rounded-full bg-emerald-100 px-3 py-1 text-xs font-bold text-emerald-800">Confirmada</span>
+                    {% elif consulta.status == "cancelada" %}
+                      <span class="inline-flex rounded-full bg-red-100 px-3 py-1 text-xs font-bold text-red-800">Cancelada</span>
+                    {% elif consulta.status == "ausente" %}
+                      <span class="inline-flex rounded-full bg-orange-100 px-3 py-1 text-xs font-bold text-orange-800">Ausente</span>
+                    {% else %}
+                      <span class="inline-flex rounded-full bg-sky-100 px-3 py-1 text-xs font-bold text-sky-800">Concluída</span>
+                    {% endif %}
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+
+        <div class="mt-6 space-y-4 md:hidden">
+          {% for consulta in consultas %}
+            <article class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+              <div class="flex items-start justify-between gap-3">
+                <div>
+                  <p class="font-bold text-slate-900">{{ consulta.paciente.nome }}</p>
+                  <p class="mt-1 text-sm text-slate-500">{{ consulta.paciente.email }}</p>
+                </div>
+                {% if consulta.status == "pendente" %}
+                  <span class="shrink-0 rounded-full bg-amber-100 px-3 py-1 text-xs font-bold text-amber-800">Pendente</span>
+                {% elif consulta.status == "confirmada" %}
+                  <span class="shrink-0 rounded-full bg-emerald-100 px-3 py-1 text-xs font-bold text-emerald-800">Confirmada</span>
+                {% elif consulta.status == "cancelada" %}
+                  <span class="shrink-0 rounded-full bg-red-100 px-3 py-1 text-xs font-bold text-red-800">Cancelada</span>
+                {% elif consulta.status == "ausente" %}
+                  <span class="shrink-0 rounded-full bg-orange-100 px-3 py-1 text-xs font-bold text-orange-800">Ausente</span>
+                {% else %}
+                  <span class="shrink-0 rounded-full bg-sky-100 px-3 py-1 text-xs font-bold text-sky-800">Concluída</span>
+                {% endif %}
+              </div>
+              <dl class="mt-5 grid grid-cols-2 gap-4 border-t border-slate-100 pt-4 text-sm">
+                <div><dt class="text-slate-500">Profissional</dt><dd class="mt-1 font-semibold text-slate-800">Dr(a). {{ consulta.medico.nome }}</dd><dd class="text-slate-500">{{ consulta.medico.especialidade.nome }}</dd></div>
+                <div><dt class="text-slate-500">Data e horário</dt><dd class="mt-1 font-semibold text-slate-800">{{ consulta.data_horario|date:"d/m/Y" }}</dd><dd class="text-slate-500">{{ consulta.data_horario|time:"H:i" }}</dd></div>
+              </dl>
+            </article>
+          {% endfor %}
+        </div>
+      {% else %}
+        <div class="mt-6 rounded-2xl border border-dashed border-slate-300 bg-white px-6 py-14 text-center">
+          <span class="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-primary-50 text-primary-700">
+            <svg class="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M8 7V3m8 4V3M5 11h14M5 5h14a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Z" /></svg>
+          </span>
+          <h3 class="mt-5 text-xl font-bold text-slate-900">Nenhuma consulta encontrada</h3>
+          <p class="mx-auto mt-2 max-w-md text-sm leading-6 text-slate-600">{% if status_atual %}Não há consultas com este status no momento.{% else %}Quando um paciente enviar uma solicitação pela página pública, ela aparecerá aqui.{% endif %}</p>
+          {% if status_atual %}
+            <a href="{% url 'dashboard' %}" class="mt-6 inline-flex rounded-xl bg-primary-600 px-4 py-3 text-sm font-bold text-white hover:bg-primary-700">Ver todas as consultas</a>
+          {% else %}
+            <a href="{% url 'home' %}#agendamento" class="mt-6 inline-flex rounded-xl bg-primary-600 px-4 py-3 text-sm font-bold text-white hover:bg-primary-700">Ir para agendamento</a>
+          {% endif %}
+        </div>
+      {% endif %}
+    </section>
+  </section>
+{% endblock %}
