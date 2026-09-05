@@ -118,7 +118,7 @@ class Migration(migrations.Migration):
             name="Atendimento",
             fields=[
                 ("id", models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name="ID")),
-                ("sintomas", models.TextField(blank=True)),
+                ("sintomas", models.TextField()),
                 ("diagnostico", models.TextField(blank=True)),
                 ("conduta", models.TextField(blank=True)),
                 ("observacoes", models.TextField(blank=True)),

@@ -3,7 +3,7 @@ from datetime import date, datetime
 from django import forms
 from django.utils import timezone
 
-from .models import Atendimento, Consulta, Medico, Paciente
+from .models import Atendimento, Consulta, Exame, Medico, Paciente, SolicitacaoExame
 from .scheduling import horarios_disponiveis
 
 
@@ -167,3 +167,34 @@ class AtendimentoForm(forms.ModelForm):
                 }
             ),
         }
+
+
+class SolicitacaoExameForm(forms.ModelForm):
+    """Solicita um exame para a consulta em atendimento."""
+
+    class Meta:
+        model = SolicitacaoExame
+        fields = ("exame", "observacoes")
+        labels = {
+            "exame": "Exame",
+            "observacoes": "Observações (opcional)",
+        }
+        widgets = {
+            "exame": forms.Select(
+                attrs={
+                    "class": "w-full rounded-xl border border-slate-300 bg-white px-3.5 py-3 text-sm outline-none transition focus:border-primary-500 focus:ring-4 focus:ring-primary-100",
+                }
+            ),
+            "observacoes": forms.Textarea(
+                attrs={
+                    "rows": 3,
+                    "placeholder": "Informe preparo, prioridade ou outra orientação.",
+                    "class": "w-full resize-y rounded-xl border border-slate-300 px-3.5 py-3 text-sm leading-6 outline-none transition focus:border-primary-500 focus:ring-4 focus:ring-primary-100",
+                }
+            ),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["exame"].queryset = Exame.objects.order_by("nome")
+        self.fields["exame"].empty_label = "Selecione um exame"

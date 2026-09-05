@@ -5,7 +5,15 @@ from django.test import TestCase
 from django.urls import reverse
 from django.utils import timezone
 
-from .models import Atendimento, Consulta, Especialidade, Medico, Paciente
+from .models import (
+    Atendimento,
+    Consulta,
+    Especialidade,
+    Exame,
+    Medico,
+    Paciente,
+    SolicitacaoExame,
+)
 
 
 class AgendamentoConsultaTests(TestCase):
@@ -78,6 +86,7 @@ class AgendamentoConsultaTests(TestCase):
 class AcessoAosPaineisTests(TestCase):
     def setUp(self):
         especialidade = Especialidade.objects.create(nome="Cardiologia")
+        self.exame = Exame.objects.create(nome="Hemograma completo")
         self.superadmin = get_user_model().objects.create_superuser(
             username="admin",
             email="admin@smarthealth.test",
@@ -205,3 +214,48 @@ class AcessoAosPaineisTests(TestCase):
         )
 
         self.assertEqual(resposta.status_code, 404)
+
+    def test_medico_solicita_exame_em_consulta_propria(self):
+        consulta = Consulta.objects.get(medico=self.medico)
+        self.client.force_login(self.medico.usuario)
+
+        resposta = self.client.post(
+            reverse("solicitar_exame", args=[consulta.id]),
+            {
+                "exame": self.exame.id,
+                "observacoes": "Realizar em jejum, se possível.",
+            },
+        )
+
+        self.assertRedirects(
+            resposta,
+            reverse("consulta_medico_detail", args=[consulta.id]),
+        )
+        solicitacao = SolicitacaoExame.objects.get(consulta=consulta)
+        self.assertEqual(solicitacao.exame, self.exame)
+        self.assertEqual(solicitacao.status, SolicitacaoExame.Status.SOLICITADO)
+
+    def test_erro_na_solicitacao_de_exame_permanece_no_formulario(self):
+        consulta = Consulta.objects.get(medico=self.medico)
+        self.client.force_login(self.medico.usuario)
+
+        resposta = self.client.post(
+            reverse("solicitar_exame", args=[consulta.id]),
+            {"exame": ""},
+        )
+
+        self.assertEqual(resposta.status_code, 400)
+        self.assertIn("exame", resposta.context["form_exame"].errors)
+        self.assertFalse(SolicitacaoExame.objects.exists())
+
+    def test_medico_nao_solicita_exame_em_consulta_de_outro_medico(self):
+        consulta_de_outro_medico = Consulta.objects.get(medico=self.outro_medico)
+        self.client.force_login(self.medico.usuario)
+
+        resposta = self.client.post(
+            reverse("solicitar_exame", args=[consulta_de_outro_medico.id]),
+            {"exame": self.exame.id},
+        )
+
+        self.assertEqual(resposta.status_code, 404)
+        self.assertFalse(SolicitacaoExame.objects.exists())

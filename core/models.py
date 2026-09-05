@@ -122,7 +122,12 @@ class Consulta(models.Model):
 
     class Meta:
         ordering = ("data_horario",)
-        indexes = [models.Index(fields=("data_horario", "status"))]
+        indexes = [
+            models.Index(
+                fields=("data_horario", "status"),
+                name="consulta_data_status_idx",
+            )
+        ]
         constraints = [
             models.UniqueConstraint(
                 fields=("medico", "data_horario"),
@@ -153,7 +158,7 @@ class Medicamento(models.Model):
 
 class Atendimento(models.Model):
     consulta = models.OneToOneField(Consulta, on_delete=models.PROTECT, related_name="atendimento")
-    sintomas = models.TextField(blank=True)
+    sintomas = models.TextField()
     diagnostico = models.TextField(blank=True)
     conduta = models.TextField(blank=True)
     observacoes = models.TextField(blank=True)

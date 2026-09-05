@@ -22,6 +22,11 @@ urlpatterns = [
         views.consulta_medico_detail,
         name="consulta_medico_detail",
     ),
+    path(
+        "painel/medico/consultas/<int:consulta_id>/exames/solicitar/",
+        views.solicitar_exame,
+        name="solicitar_exame",
+    ),
     path("logout/", auth_views.LogoutView.as_view(), name="logout"),
     path("sessao-expirada/", views.session_expired_view, name="session_expired"),
 ]

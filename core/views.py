@@ -7,15 +7,14 @@ from django.db import IntegrityError, transaction
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
-from django.views.decorators.http import require_GET
+from django.views.decorators.http import require_GET, require_POST
 
-from .forms import AgendamentoConsultaForm, AtendimentoForm
+from .forms import AgendamentoConsultaForm, AtendimentoForm, SolicitacaoExameForm
 from .models import Atendimento, Consulta, Especialidade, Medico, Paciente
 from .scheduling import horarios_disponiveis
 
 
 def home(request):
-    """Exibe a página pública e processa solicitações de consulta."""
     especialidades = Especialidade.objects.all()
 
     if request.method == "POST":
@@ -72,7 +71,6 @@ def home(request):
 
 @require_GET
 def horarios_disponiveis_view(request):
-    """Fornece à página pública os horários livres de um médico."""
     medico_id = request.GET.get("medico")
     data_texto = request.GET.get("data")
 
@@ -90,7 +88,6 @@ def horarios_disponiveis_view(request):
 
 
 def _obter_medico_ativo(usuario):
-    """Retorna o médico associado a um usuário autorizado."""
     try:
         medico = usuario.medico
     except Medico.DoesNotExist:
@@ -102,9 +99,27 @@ def _obter_medico_ativo(usuario):
     return medico
 
 
+def _obter_atendimento(consulta):
+    try:
+        return consulta.atendimento
+    except Atendimento.DoesNotExist:
+        return None
+
+
+def _contexto_consulta_medico(consulta, form, form_exame):
+    return {
+        "consulta": consulta,
+        "atendimento": _obter_atendimento(consulta),
+        "form": form,
+        "form_exame": form_exame,
+        "solicitacoes_exames": consulta.solicitacoes_exames.select_related(
+            "exame"
+        ).order_by("-solicitado_em"),
+    }
+
+
 @login_required
 def dashboard(request):
-    """Encaminha cada perfil autenticado para o painel permitido."""
     if request.user.is_superuser:
         return _dashboard_administrativo(request)
 
@@ -114,7 +129,6 @@ def dashboard(request):
 
 
 def _dashboard_administrativo(request):
-    """Exibe consultas e indicadores exclusivos do superadmin."""
     consultas_base = Consulta.objects.select_related(
         "paciente",
         "medico",
@@ -153,7 +167,6 @@ def _dashboard_administrativo(request):
 
 @login_required
 def medico_dashboard(request):
-    """Exibe ao médico somente as consultas vinculadas ao seu usuário."""
     if request.user.is_superuser:
         return redirect("dashboard")
 
@@ -181,7 +194,6 @@ def medico_dashboard(request):
 
 @login_required
 def consulta_medico_detail(request, consulta_id):
-    """Permite atendimento clínico apenas na consulta do médico logado."""
     if request.user.is_superuser:
         return redirect("dashboard")
 
@@ -192,10 +204,7 @@ def consulta_medico_detail(request, consulta_id):
         medico=medico,
     )
 
-    try:
-        atendimento = consulta.atendimento
-    except Atendimento.DoesNotExist:
-        atendimento = None
+    atendimento = _obter_atendimento(consulta)
 
     if request.method == "POST":
         form = AtendimentoForm(request.POST, instance=atendimento)
@@ -211,12 +220,43 @@ def consulta_medico_detail(request, consulta_id):
     return render(
         request,
         "core/consulta_medico_detail.html",
-        {
-            "consulta": consulta,
-            "atendimento": atendimento,
-            "form": form,
-        },
+        _contexto_consulta_medico(consulta, form, SolicitacaoExameForm()),
     )
+
+
+@login_required
+@require_POST
+def solicitar_exame(request, consulta_id):
+    if request.user.is_superuser:
+        return redirect("dashboard")
+
+    medico = _obter_medico_ativo(request.user)
+    consulta = get_object_or_404(
+        Consulta.objects.select_related("paciente", "medico__especialidade"),
+        pk=consulta_id,
+        medico=medico,
+    )
+    form = SolicitacaoExameForm(request.POST)
+
+    if form.is_valid():
+        solicitacao = form.save(commit=False)
+        solicitacao.consulta = consulta
+        solicitacao.save()
+        messages.success(request, "Solicitação de exame registrada com sucesso.")
+
+        return redirect("consulta_medico_detail", consulta_id=consulta.id)
+
+    return render(
+        request,
+        "core/consulta_medico_detail.html",
+        _contexto_consulta_medico(
+            consulta,
+            AtendimentoForm(instance=_obter_atendimento(consulta)),
+            form,
+        ),
+        status=400,
+    )
+
 
 def session_expired_view(request):
     return render(request, "core/session_expired.html")
