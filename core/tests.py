@@ -10,8 +10,10 @@ from .models import (
     Consulta,
     Especialidade,
     Exame,
+    Medicamento,
     Medico,
     Paciente,
+    Receita,
     SolicitacaoExame,
 )
 
@@ -87,6 +89,7 @@ class AcessoAosPaineisTests(TestCase):
     def setUp(self):
         especialidade = Especialidade.objects.create(nome="Cardiologia")
         self.exame = Exame.objects.create(nome="Hemograma completo")
+        self.medicamento = Medicamento.objects.create(nome="Paracetamol 500 mg")
         self.superadmin = get_user_model().objects.create_superuser(
             username="admin",
             email="admin@smarthealth.test",
@@ -247,6 +250,52 @@ class AcessoAosPaineisTests(TestCase):
         self.assertEqual(resposta.status_code, 400)
         self.assertIn("exame", resposta.context["form_exame"].errors)
         self.assertFalse(SolicitacaoExame.objects.exists())
+
+    def test_medico_emite_receita_em_consulta_propria(self):
+        consulta = Consulta.objects.get(medico=self.medico)
+        self.client.force_login(self.medico.usuario)
+
+        resposta = self.client.post(
+            reverse("emitir_receita", args=[consulta.id]),
+            {
+                "orientacoes": "Manter repouso e hidratação.",
+                "itens-TOTAL_FORMS": "2",
+                "itens-INITIAL_FORMS": "0",
+                "itens-MIN_NUM_FORMS": "1",
+                "itens-MAX_NUM_FORMS": "1000",
+                "itens-0-medicamento": self.medicamento.id,
+                "itens-0-dosagem": "500 mg",
+                "itens-0-frequencia": "A cada 8 horas",
+                "itens-0-duracao": "3 dias",
+                "itens-0-instrucoes": "Tomar após as refeições.",
+                "itens-1-medicamento": "",
+                "itens-1-dosagem": "",
+                "itens-1-frequencia": "",
+                "itens-1-duracao": "",
+                "itens-1-instrucoes": "",
+            },
+        )
+
+        self.assertRedirects(
+            resposta,
+            reverse("consulta_medico_detail", args=[consulta.id]),
+        )
+        receita = Receita.objects.get(consulta=consulta)
+        item = receita.itens.get()
+        self.assertEqual(item.medicamento, self.medicamento)
+        self.assertEqual(item.dosagem, "500 mg")
+
+    def test_medico_nao_emite_receita_em_consulta_de_outro_medico(self):
+        consulta_de_outro_medico = Consulta.objects.get(medico=self.outro_medico)
+        self.client.force_login(self.medico.usuario)
+
+        resposta = self.client.post(
+            reverse("emitir_receita", args=[consulta_de_outro_medico.id]),
+            {},
+        )
+
+        self.assertEqual(resposta.status_code, 404)
+        self.assertFalse(Receita.objects.exists())
 
     def test_medico_nao_solicita_exame_em_consulta_de_outro_medico(self):
         consulta_de_outro_medico = Consulta.objects.get(medico=self.outro_medico)

@@ -5,7 +5,7 @@
 {% block header %}
 <header class="border-b border-slate-200 bg-white">
   <nav
-    class="mx-auto flex max-w-4xl items-center justify-between gap-4 px-5 py-4 lg:px-8"
+    class="mx-auto flex max-w-8xl items-center justify-around gap-4 px-5 py-4 lg:px-8"
     aria-label="Navegação do atendimento"
   >
     <a
@@ -27,7 +27,10 @@
   </nav>
 </header>
 {% endblock %} {% block content %}
-<section class="mx-auto max-w-7xl px-5 py-8 lg:px-8 lg:py-10">
+<section
+  class="mx-auto max-w-7xl px-5 py-8 lg:px-8 lg:py-10"
+  x-data="{ modalExame: {{ form_exame.errors|yesno:'true,false' }}, modalReceita: {{ form_receita.errors|yesno:'true,false' }} }"
+>
   <div class="grid gap-8 lg:grid-cols-2 lg:items-start">
     <div
       class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8 lg:col-span-2"
@@ -87,7 +90,7 @@
     </div>
 
     <section
-      class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8 lg:row-span-2"
+      class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8"
     >
       <div>
         <p
@@ -130,9 +133,8 @@
       {% endif %}
     </section>
 
-    <section
-      class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8"
-    >
+    <div class="flex flex-col gap-4 lg:col-start-2">
+    <section class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
       <div>
         <p
           class="text-sm font-bold uppercase tracking-[0.18em] text-primary-700"
@@ -147,20 +149,13 @@
         </p>
       </div>
 
-      <form
-        id="form-exame"
-        method="post"
-        action="{% url 'solicitar_exame' consulta.id %}"
-        class="mt-7"
+      <button
+        type="button"
+        @click="modalExame = true"
+        class="mt-6 inline-flex w-full items-center justify-center rounded-xl border border-primary-600 bg-white px-5 py-3.5 text-sm font-bold text-primary-700 transition hover:bg-primary-50 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2"
       >
-        {% csrf_token %} {{ form_exame.as_p }}
-        <button
-          type="submit"
-          class="mt-5 inline-flex w-full items-center justify-center rounded-xl border border-primary-600 bg-white px-5 py-3.5 text-sm font-bold text-primary-700 transition hover:bg-primary-50 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2"
-        >
-          Solicitar exame
-        </button>
-      </form>
+        Solicitar exame
+      </button>
 
       <div class="mt-8 border-t border-slate-100 pt-6">
         <h3 class="text-base font-bold text-slate-900">Exames solicitados</h3>
@@ -208,29 +203,227 @@
         {% endif %}
       </div>
     </section>
+
+    <section class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
+      <div>
+        <p
+          class="text-sm font-bold uppercase tracking-[0.18em] text-primary-700"
+        >
+          Receitas
+        </p>
+        <h2 class="mt-2 text-2xl font-bold tracking-tight text-slate-900">
+          Emitir receita
+        </h2>
+        <p class="mt-2 text-sm leading-6 text-slate-600">
+          Inclua pelo menos um medicamento nesta receita.
+        </p>
+      </div>
+
+      <button
+        type="button"
+        @click="modalReceita = true"
+        class="mt-6 inline-flex w-full items-center justify-center rounded-xl border border-primary-600 bg-white px-5 py-3.5 text-sm font-bold text-primary-700 transition hover:bg-primary-50 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2"
+      >
+        Emitir receita
+      </button>
+
+      <div class="mt-8 border-t border-slate-100 pt-6">
+        <h3 class="text-base font-bold text-slate-900">Receitas emitidas</h3>
+        {% if receitas %}
+        <div class="mt-4 space-y-3">
+          {% for receita in receitas %}
+          <article class="rounded-xl bg-slate-50 px-4 py-3">
+            <p class="text-xs font-bold uppercase tracking-wide text-slate-500">
+              Emitida em {{ receita.emitida_em|date:"d/m/Y" }} às {{ receita.emitida_em|time:"H:i" }}
+            </p>
+            <ul class="mt-3 space-y-2 text-sm text-slate-700">
+              {% for item in receita.itens.all %}
+              <li>
+                <span class="font-semibold text-slate-800">{{ item.medicamento.nome }}</span>
+                — {{ item.dosagem }}, {{ item.frequencia }}, por {{ item.duracao }}.
+              </li>
+              {% endfor %}
+            </ul>
+            {% if receita.orientacoes %}
+            <p class="mt-3 border-t border-slate-200 pt-3 text-sm leading-6 text-slate-600">
+              {{ receita.orientacoes }}
+            </p>
+            {% endif %}
+          </article>
+          {% endfor %}
+        </div>
+        {% else %}
+        <p class="mt-3 text-sm text-slate-600">
+          Nenhuma receita emitida nesta consulta.
+        </p>
+        {% endif %}
+      </div>
+    </section>
+    </div>
+  </div>
+
+  <div
+    x-cloak
+    x-show="modalExame"
+    @click.self="modalExame = false"
+    @keydown.escape.window="modalExame = false"
+    class="fixed inset-0 z-40 flex items-center justify-center bg-slate-950/50 p-5"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="titulo-modal-exame"
+  >
+    <div class="w-full max-w-lg overflow-hidden rounded-2xl bg-white shadow-2xl">
+      <div class="max-h-[calc(100vh-2.5rem)] overflow-y-auto p-6 sm:p-8">
+        <div class="flex items-start justify-between gap-4">
+        <div>
+          <p class="text-sm font-bold uppercase tracking-[0.18em] text-primary-700">Exames</p>
+          <h2 id="titulo-modal-exame" class="mt-2 text-2xl font-bold text-slate-900">Solicitar exame</h2>
+        </div>
+        <button type="button" @click="modalExame = false" class="rounded-lg p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-800" aria-label="Fechar formulário de exame">×</button>
+      </div>
+
+        <form id="form-exame" method="post" action="{% url 'solicitar_exame' consulta.id %}" class="mt-7">
+          {% csrf_token %}
+          {{ form_exame.as_p }}
+          <div class="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+            <button type="button" @click="modalExame = false" class="rounded-xl px-5 py-3 text-sm font-bold text-slate-600 hover:bg-slate-100">Cancelar</button>
+            <button type="submit" class="rounded-xl bg-primary-600 px-5 py-3 text-sm font-bold text-white transition hover:bg-primary-700">Confirmar solicitação</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <div
+    x-cloak
+    x-show="modalReceita"
+    @click.self="modalReceita = false"
+    @keydown.escape.window="modalReceita = false"
+    class="fixed inset-0 z-40 flex items-center justify-center bg-slate-950/50 p-5"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="titulo-modal-receita"
+  >
+    <div class="w-full max-w-2xl overflow-hidden rounded-2xl bg-white shadow-2xl">
+      <div class="max-h-[calc(100vh-2.5rem)] overflow-y-auto p-6 sm:p-8">
+        <div class="flex items-start justify-between gap-4">
+        <div>
+          <p class="text-sm font-bold uppercase tracking-[0.18em] text-primary-700">Receitas</p>
+          <h2 id="titulo-modal-receita" class="mt-2 text-2xl font-bold text-slate-900">Emitir receita</h2>
+        </div>
+        <button type="button" @click="modalReceita = false" class="rounded-lg p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-800" aria-label="Fechar formulário de receita">×</button>
+      </div>
+
+      <form
+        id="form-receita"
+        method="post"
+        action="{% url 'emitir_receita' consulta.id %}"
+        class="mt-7"
+        x-data="{
+          visiveis: {% if formset_receita.errors %}[0, 1, 2, 3, 4]{% else %}[0]{% endif %},
+          adicionar() {
+            for (let indice = 0; indice < 5; indice += 1) {
+              if (!this.visiveis.includes(indice)) {
+                const campoExcluir = document.getElementById('id_itens-' + indice + '-DELETE');
+                if (campoExcluir) campoExcluir.checked = false;
+                this.visiveis.push(indice);
+                break;
+              }
+            }
+          },
+          remover(indice) {
+            if (this.visiveis.length <= 1) return;
+            const campoExcluir = document.getElementById('id_itens-' + indice + '-DELETE');
+            if (campoExcluir) campoExcluir.checked = true;
+            this.visiveis = this.visiveis.filter((item) => item !== indice);
+          }
+        }"
+      >
+        {% csrf_token %}
+        {% if form_receita.errors or formset_receita.errors %}
+        <div class="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700" role="alert">Revise os campos destacados antes de emitir a receita.</div>
+        {% endif %}
+
+        {{ form_receita.as_p }} {{ formset_receita.management_form }}
+        {% for item_form in formset_receita %}
+        <details
+          class="mt-5 rounded-xl border border-slate-200 bg-slate-50"
+          x-show="visiveis.includes({{ forloop.counter0 }})"
+          x-cloak
+          {% if forloop.first %}open{% endif %}
+        >
+          <summary class="cursor-pointer px-4 py-3 text-sm font-bold text-slate-700 marker:text-primary-700">
+            Medicamento {{ forloop.counter }}
+          </summary>
+          <div class="border-t border-slate-200 px-4 pb-4">
+            {{ item_form.as_p }}
+            <button
+              type="button"
+              x-show="visiveis.length > 1"
+              @click="remover({{ forloop.counter0 }})"
+              class="mt-2 text-sm font-bold text-red-600 transition hover:text-red-700"
+            >
+              Remover medicamento
+            </button>
+          </div>
+        </details>
+        {% endfor %}
+
+        <button
+          type="button"
+          x-show="visiveis.length < 5"
+          @click="adicionar()"
+          class="mt-5 inline-flex w-full items-center justify-center rounded-xl border border-dashed border-primary-600 px-5 py-3 text-sm font-bold text-primary-700 transition hover:bg-primary-50"
+        >
+          + Adicionar medicamento
+        </button>
+
+        <div class="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+          <button type="button" @click="modalReceita = false" class="rounded-xl px-5 py-3 text-sm font-bold text-slate-600 hover:bg-slate-100">Cancelar</button>
+          <button type="submit" class="rounded-xl bg-primary-600 px-5 py-3 text-sm font-bold text-white transition hover:bg-primary-700">Emitir receita</button>
+        </div>
+      </form>
+      </div>
+    </div>
   </div>
 </section>
 {% endblock %} {% block extra_head %}
 <style>
-  #form-atendimento > p,
-  #form-exame > p {
-    margin-top: 1.25rem;
-  }
-  #form-atendimento label,
-  #form-exame label {
+    #form-atendimento > p,
+    #form-exame > p,
+    #form-receita > p,
+    #form-receita fieldset p {
+      margin-top: 1.25rem;
+    }
+    #form-atendimento label,
+    #form-exame label,
+    #form-receita label {
     display: block;
     margin-bottom: 0.375rem;
     font-size: 0.875rem;
     font-weight: 600;
     color: #334155;
   }
-  #form-atendimento .errorlist,
-  #form-exame .errorlist {
+    #form-atendimento .errorlist,
+    #form-exame .errorlist,
+    #form-receita .errorlist {
     margin: 0 0 0.375rem;
     padding: 0;
     color: #dc2626;
-    font-size: 0.75rem;
-    list-style: none;
-  }
-</style>
+      font-size: 0.75rem;
+      list-style: none;
+    }
+    #form-atendimento textarea,
+    #form-exame textarea,
+    #form-receita textarea {
+      resize: none;
+    }
+    #form-receita input[name$="-DELETE"],
+    #form-receita label[for$="-DELETE"] {
+      display: none;
+    }
+    #form-receita p:has(input[name$="-DELETE"]) {
+      display: none;
+    }
+  </style>
 {% endblock %}

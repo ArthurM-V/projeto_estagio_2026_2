@@ -1,9 +1,20 @@
 from datetime import date, datetime
 
 from django import forms
+from django.forms import inlineformset_factory
 from django.utils import timezone
 
-from .models import Atendimento, Consulta, Exame, Medico, Paciente, SolicitacaoExame
+from .models import (
+    Atendimento,
+    Consulta,
+    Exame,
+    Medicamento,
+    Medico,
+    Paciente,
+    Receita,
+    ReceitaMedicamento,
+    SolicitacaoExame,
+)
 from .scheduling import horarios_disponiveis
 
 
@@ -131,7 +142,7 @@ class AtendimentoForm(forms.ModelForm):
             attrs={
                 "rows": 4,
                 "placeholder": "Descreva os sintomas relatados pelo paciente.",
-                "class": "w-full resize-y rounded-xl border border-slate-300 px-3.5 py-3 text-sm leading-6 outline-none transition focus:border-primary-500 focus:ring-4 focus:ring-primary-100",
+                "class": "w-full rounded-xl border border-slate-300 px-3.5 py-3 text-sm leading-6 outline-none transition focus:border-primary-500 focus:ring-4 focus:ring-primary-100",
             }
         ),
     )
@@ -149,21 +160,21 @@ class AtendimentoForm(forms.ModelForm):
                 attrs={
                     "rows": 3,
                     "placeholder": "Registre o diagnóstico, se houver.",
-                    "class": "w-full resize-y rounded-xl border border-slate-300 px-3.5 py-3 text-sm leading-6 outline-none transition focus:border-primary-500 focus:ring-4 focus:ring-primary-100",
+                    "class": "w-full rounded-xl border border-slate-300 px-3.5 py-3 text-sm leading-6 outline-none transition focus:border-primary-500 focus:ring-4 focus:ring-primary-100",
                 }
             ),
             "conduta": forms.Textarea(
                 attrs={
                     "rows": 3,
                     "placeholder": "Descreva a conduta adotada.",
-                    "class": "w-full resize-y rounded-xl border border-slate-300 px-3.5 py-3 text-sm leading-6 outline-none transition focus:border-primary-500 focus:ring-4 focus:ring-primary-100",
+                    "class": "w-full rounded-xl border border-slate-300 px-3.5 py-3 text-sm leading-6 outline-none transition focus:border-primary-500 focus:ring-4 focus:ring-primary-100",
                 }
             ),
             "observacoes": forms.Textarea(
                 attrs={
                     "rows": 3,
                     "placeholder": "Inclua observações relevantes.",
-                    "class": "w-full resize-y rounded-xl border border-slate-300 px-3.5 py-3 text-sm leading-6 outline-none transition focus:border-primary-500 focus:ring-4 focus:ring-primary-100",
+                    "class": "w-full rounded-xl border border-slate-300 px-3.5 py-3 text-sm leading-6 outline-none transition focus:border-primary-500 focus:ring-4 focus:ring-primary-100",
                 }
             ),
         }
@@ -189,7 +200,7 @@ class SolicitacaoExameForm(forms.ModelForm):
                 attrs={
                     "rows": 3,
                     "placeholder": "Informe preparo, prioridade ou outra orientação.",
-                    "class": "w-full resize-y rounded-xl border border-slate-300 px-3.5 py-3 text-sm leading-6 outline-none transition focus:border-primary-500 focus:ring-4 focus:ring-primary-100",
+                    "class": "w-full rounded-xl border border-slate-300 px-3.5 py-3 text-sm leading-6 outline-none transition focus:border-primary-500 focus:ring-4 focus:ring-primary-100",
                 }
             ),
         }
@@ -198,3 +209,82 @@ class SolicitacaoExameForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         self.fields["exame"].queryset = Exame.objects.order_by("nome")
         self.fields["exame"].empty_label = "Selecione um exame"
+
+
+class ReceitaForm(forms.ModelForm):
+    class Meta:
+        model = Receita
+        fields = ("orientacoes",)
+        labels = {"orientacoes": "Orientações gerais (opcional)"}
+        widgets = {
+            "orientacoes": forms.Textarea(
+                attrs={
+                    "rows": 3,
+                    "placeholder": "Inclua recomendações gerais para o paciente.",
+                    "class": "w-full rounded-xl border border-slate-300 px-3.5 py-3 text-sm leading-6 outline-none transition focus:border-primary-500 focus:ring-4 focus:ring-primary-100",
+                }
+            )
+        }
+
+
+class ReceitaMedicamentoForm(forms.ModelForm):
+    class Meta:
+        model = ReceitaMedicamento
+        fields = ("medicamento", "dosagem", "frequencia", "duracao", "instrucoes")
+        labels = {
+            "medicamento": "Medicamento",
+            "dosagem": "Dosagem",
+            "frequencia": "Frequência",
+            "duracao": "Duração",
+            "instrucoes": "Instruções (opcional)",
+        }
+        widgets = {
+            "medicamento": forms.Select(
+                attrs={
+                    "class": "w-full rounded-xl border border-slate-300 bg-white px-3.5 py-3 text-sm outline-none transition focus:border-primary-500 focus:ring-4 focus:ring-primary-100",
+                }
+            ),
+            "dosagem": forms.TextInput(
+                attrs={
+                    "placeholder": "Ex.: 500 mg",
+                    "class": "w-full rounded-xl border border-slate-300 px-3.5 py-3 text-sm outline-none transition focus:border-primary-500 focus:ring-4 focus:ring-primary-100",
+                }
+            ),
+            "frequencia": forms.TextInput(
+                attrs={
+                    "placeholder": "Ex.: a cada 8 horas",
+                    "class": "w-full rounded-xl border border-slate-300 px-3.5 py-3 text-sm outline-none transition focus:border-primary-500 focus:ring-4 focus:ring-primary-100",
+                }
+            ),
+            "duracao": forms.TextInput(
+                attrs={
+                    "placeholder": "Ex.: 5 dias",
+                    "class": "w-full rounded-xl border border-slate-300 px-3.5 py-3 text-sm outline-none transition focus:border-primary-500 focus:ring-4 focus:ring-primary-100",
+                }
+            ),
+            "instrucoes": forms.Textarea(
+                attrs={
+                    "rows": 2,
+                    "placeholder": "Ex.: tomar após as refeições.",
+                    "class": "w-full rounded-xl border border-slate-300 px-3.5 py-3 text-sm leading-6 outline-none transition focus:border-primary-500 focus:ring-4 focus:ring-primary-100",
+                }
+            ),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["medicamento"].queryset = Medicamento.objects.order_by("nome")
+        self.fields["medicamento"].empty_label = "Selecione um medicamento"
+
+
+ReceitaMedicamentoFormSet = inlineformset_factory(
+    Receita,
+    ReceitaMedicamento,
+    form=ReceitaMedicamentoForm,
+    extra=5,
+    min_num=1,
+    max_num=5,
+    validate_min=True,
+    validate_max=True,
+    can_delete=True,
+)

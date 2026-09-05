@@ -9,8 +9,14 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views.decorators.http import require_GET, require_POST
 
-from .forms import AgendamentoConsultaForm, AtendimentoForm, SolicitacaoExameForm
-from .models import Atendimento, Consulta, Especialidade, Medico, Paciente
+from .forms import (
+    AgendamentoConsultaForm,
+    AtendimentoForm,
+    ReceitaForm,
+    ReceitaMedicamentoFormSet,
+    SolicitacaoExameForm,
+)
+from .models import Atendimento, Consulta, Especialidade, Medico, Paciente, Receita
 from .scheduling import horarios_disponiveis
 
 
@@ -106,15 +112,27 @@ def _obter_atendimento(consulta):
         return None
 
 
-def _contexto_consulta_medico(consulta, form, form_exame):
+def _contexto_consulta_medico(
+    consulta,
+    form,
+    form_exame,
+    form_receita=None,
+    formset_receita=None,
+):
     return {
         "consulta": consulta,
         "atendimento": _obter_atendimento(consulta),
         "form": form,
         "form_exame": form_exame,
+        "form_receita": form_receita or ReceitaForm(),
+        "formset_receita": formset_receita or ReceitaMedicamentoFormSet(
+            instance=Receita(),
+            prefix="itens",
+        ),
         "solicitacoes_exames": consulta.solicitacoes_exames.select_related(
             "exame"
         ).order_by("-solicitado_em"),
+        "receitas": consulta.receitas.prefetch_related("itens__medicamento"),
     }
 
 
@@ -253,6 +271,48 @@ def solicitar_exame(request, consulta_id):
             consulta,
             AtendimentoForm(instance=_obter_atendimento(consulta)),
             form,
+        ),
+        status=400,
+    )
+
+
+@login_required
+@require_POST
+def emitir_receita(request, consulta_id):
+    if request.user.is_superuser:
+        return redirect("dashboard")
+
+    medico = _obter_medico_ativo(request.user)
+    consulta = get_object_or_404(
+        Consulta.objects.select_related("paciente", "medico__especialidade"),
+        pk=consulta_id,
+        medico=medico,
+    )
+    receita = Receita(consulta=consulta)
+    form_receita = ReceitaForm(request.POST, instance=receita)
+    formset_receita = ReceitaMedicamentoFormSet(
+        request.POST,
+        instance=receita,
+        prefix="itens",
+    )
+
+    if form_receita.is_valid() and formset_receita.is_valid():
+        with transaction.atomic():
+            receita = form_receita.save()
+            formset_receita.instance = receita
+            formset_receita.save()
+        messages.success(request, "Receita emitida com sucesso.")
+        return redirect("consulta_medico_detail", consulta_id=consulta.id)
+
+    return render(
+        request,
+        "core/consulta_medico_detail.html",
+        _contexto_consulta_medico(
+            consulta,
+            AtendimentoForm(instance=_obter_atendimento(consulta)),
+            SolicitacaoExameForm(),
+            form_receita,
+            formset_receita,
         ),
         status=400,
     )
