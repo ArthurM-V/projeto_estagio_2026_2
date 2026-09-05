@@ -125,3 +125,6 @@ def dashboard(request):
             ).count(),
         },
     )
+
+def session_expired_view(request):
+    return render(request, "core/session_expired.html")

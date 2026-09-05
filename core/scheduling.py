@@ -16,7 +16,14 @@ HORARIOS_SEMANA = (
     time(16, 0),
     time(17, 0),
 )
-HORARIOS_SABADO = (time(8, 0), time(9, 0), time(10, 0), time(11, 0))
+HORARIOS_SABADO = (
+    time(8, 0),
+    time(9, 0),
+    time(10, 0),
+    time(11, 0),
+    time(13, 0),
+    time(14, 0),
+)
 
 
 def horarios_da_clinica(data):

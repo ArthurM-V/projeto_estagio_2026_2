@@ -17,6 +17,8 @@ class AgendamentoConsultaTests(TestCase):
             especialidade=especialidade,
         )
         self.data_consulta = timezone.localdate() + timedelta(days=1)
+        while self.data_consulta.weekday() == 6:
+            self.data_consulta += timedelta(days=1)
         self.horario = time(10, 0)
 
     def dados_validos(self):
@@ -43,7 +45,7 @@ class AgendamentoConsultaTests(TestCase):
         self.assertEqual(consulta.medico, self.medico)
         self.assertEqual(consulta.status, Consulta.Status.PENDENTE)
 
-    def test_horario_ocupado_exibe_erro_e_nao_duplica_consulta(self):
+    def test_horario_ocupado_nao_e_oferecido_e_nao_duplica_consulta(self):
         paciente = Paciente.objects.create(
             nome="Paciente existente",
             cpf="98765432100",
@@ -64,8 +66,9 @@ class AgendamentoConsultaTests(TestCase):
         resposta = self.client.post(reverse("home"), self.dados_validos())
 
         self.assertEqual(resposta.status_code, 200)
-        self.assertContains(
-            resposta,
-            "Este médico já possui uma consulta neste horário.",
+        self.assertIn("horario", resposta.context["form"].errors)
+        self.assertNotIn(
+            ("10:00", "10:00"),
+            resposta.context["form"].fields["horario"].choices,
         )
         self.assertEqual(Consulta.objects.count(), 1)

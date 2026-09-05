@@ -4,6 +4,12 @@
 
 {% block extra_head %}
   <style>
+    @media (prefers-reduced-motion: no-preference) {
+      html {
+        scroll-behavior: smooth;
+      }
+    }
+
     @media (min-width: 640px) {
       #form-agendamento {
         display: grid;
@@ -72,7 +78,6 @@
   <footer class="border-t border-slate-200 bg-white">
     <div class="mx-auto flex max-w-7xl flex-col gap-3 px-5 py-7 text-sm text-slate-500 sm:flex-row sm:items-center sm:justify-between lg:px-8">
       <p>© {% now "Y" %} SmartHealth. Cuidado médico com atenção.</p>
-      <p>Agendamentos sujeitos à confirmação da clínica.</p>
     </div>
   </footer>
 {% endblock %}
@@ -234,6 +239,7 @@
         <form
           id="form-agendamento"
           method="post"
+          data-form-com-erros="{{ form_com_erros|yesno:'true,false' }}"
           class="mt-7 [&_.errorlist]:mt-1 [&_.errorlist]:list-none [&_.errorlist]:p-0 [&_.errorlist]:text-xs [&_.errorlist]:text-red-600 [&_input]:mt-1.5 [&_input]:w-full [&_input]:rounded-xl [&_input]:border [&_input]:border-slate-300 [&_input]:px-3.5 [&_input]:py-3 [&_input]:text-sm [&_input]:outline-none [&_input:focus]:border-primary-500 [&_input:focus]:ring-4 [&_input:focus]:ring-primary-100 [&_label]:block [&_label]:text-sm [&_label]:font-semibold [&_label]:text-slate-700 [&_p]:mb-4 [&_select]:mt-1.5 [&_select]:w-full [&_select]:rounded-xl [&_select]:border [&_select]:border-slate-300 [&_select]:bg-white [&_select]:px-3.5 [&_select]:py-3 [&_select]:text-sm [&_select]:outline-none [&_select:focus]:border-primary-500 [&_select:focus]:ring-4 [&_select:focus]:ring-primary-100 [&_textarea]:mt-1.5 [&_textarea]:w-full [&_textarea]:resize-y [&_textarea]:rounded-xl [&_textarea]:border [&_textarea]:border-slate-300 [&_textarea]:px-3.5 [&_textarea]:py-3 [&_textarea]:text-sm [&_textarea]:outline-none [&_textarea:focus]:border-primary-500 [&_textarea:focus]:ring-4 [&_textarea:focus]:ring-primary-100"
           x-data="{ enviando: false }"
           @submit="enviando = true"
@@ -306,9 +312,9 @@
       if (medico.value && data.value) carregarHorarios();
       else horario.disabled = true;
 
-      {% if form_com_erros %}
+      if (formulario.dataset.formComErros === "true") {
         document.getElementById("agendamento").scrollIntoView({ behavior: "smooth", block: "start" });
-      {% endif %}
+      }
     });
   </script>
 {% endblock %}

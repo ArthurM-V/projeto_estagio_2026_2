@@ -1,0 +1,37 @@
+{% extends "core/base.html" %}
+
+{% block title %}Sessão expirada | SmartHealth{% endblock %}
+
+{% block header %}{% endblock %}
+
+{% block footer %}{% endblock %}
+
+{% block content %}
+  <section class="relative flex min-h-screen items-center overflow-hidden bg-slate-100 px-5 py-12">
+    <div class="absolute inset-0 overflow-hidden" aria-hidden="true">
+      <div class="absolute -left-24 top-12 h-64 w-64 rounded-full bg-primary-100"></div>
+      <div class="absolute -bottom-28 -right-24 h-80 w-80 rounded-full bg-primary-200/60"></div>
+    </div>
+
+    <div class="relative mx-auto w-full max-w-lg rounded-3xl bg-white p-8 text-center shadow-2xl sm:p-12">
+      <span class="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-amber-100 text-amber-700" aria-hidden="true">
+        <svg class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M12 8v4l2.5 1.5M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+        </svg>
+      </span>
+
+      <p class="mt-7 text-sm font-bold uppercase tracking-[0.18em] text-primary-700">SmartHealth</p>
+      <h1 class="mt-3 text-3xl font-bold tracking-tight text-slate-900">Sua sessão expirou.</h1>
+      <p class="mt-4 leading-7 text-slate-600">
+        Por segurança, encerramos sua sessão após um período de inatividade. Entre novamente para continuar no painel.
+      </p>
+
+      <a href="{% url 'login' %}" class="mt-8 inline-flex w-full items-center justify-center rounded-xl bg-primary-600 px-5 py-3.5 text-sm font-bold text-white shadow-sm transition hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2">
+        Entrar novamente
+      </a>
+      <a href="{% url 'home' %}" class="mt-4 inline-flex text-sm font-semibold text-primary-700 transition hover:text-primary-800">
+        Voltar para a página inicial
+      </a>
+    </div>
+  </section>
+{% endblock %}
