@@ -16,6 +16,7 @@ urlpatterns = [
         name="login",
     ),
     path("painel/", views.dashboard, name="dashboard"),
+    path("painel/medico/", views.medico_dashboard, name="medico_dashboard"),
     path("logout/", auth_views.LogoutView.as_view(), name="logout"),
     path("sessao-expirada/", views.session_expired_view, name="session_expired"),
 ]

@@ -2,6 +2,7 @@ from datetime import date, datetime
 
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
+from django.core.exceptions import PermissionDenied
 from django.db import IntegrityError, transaction
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
@@ -90,7 +91,23 @@ def horarios_disponiveis_view(request):
 
 @login_required
 def dashboard(request):
-    """Exibe consultas e indicadores para a equipe administrativa."""
+    """Encaminha cada perfil autenticado para o painel permitido."""
+    if request.user.is_superuser:
+        return _dashboard_administrativo(request)
+
+    try:
+        medico = request.user.medico
+    except Medico.DoesNotExist:
+        raise PermissionDenied("Seu usuário não possui acesso a um painel.")
+
+    if not medico.ativo:
+        raise PermissionDenied("O cadastro deste médico está inativo.")
+
+    return redirect("medico_dashboard")
+
+
+def _dashboard_administrativo(request):
+    """Exibe consultas e indicadores exclusivos do superadmin."""
     consultas_base = Consulta.objects.select_related(
         "paciente",
         "medico",
@@ -123,6 +140,40 @@ def dashboard(request):
             "consultas_hoje": consultas_base.filter(
                 data_horario__date=timezone.localdate()
             ).count(),
+        },
+    )
+
+
+@login_required
+def medico_dashboard(request):
+    """Exibe ao médico somente as consultas vinculadas ao seu usuário."""
+    if request.user.is_superuser:
+        return redirect("dashboard")
+
+    try:
+        medico = request.user.medico
+    except Medico.DoesNotExist:
+        raise PermissionDenied("Seu usuário não possui acesso ao painel médico.")
+
+    if not medico.ativo:
+        raise PermissionDenied("O cadastro deste médico está inativo.")
+
+    consultas = (
+        Consulta.objects.filter(medico=medico)
+        .select_related("paciente")
+        .order_by("data_horario")
+    )
+
+    return render(
+        request,
+        "core/medico_dashboard.html",
+        {
+            "medico": medico,
+            "consultas": consultas,
+            "consultas_hoje": consultas.filter(
+                data_horario__date=timezone.localdate()
+            ).count(),
+            "pendentes": consultas.filter(status=Consulta.Status.PENDENTE).count(),
         },
     )
 
