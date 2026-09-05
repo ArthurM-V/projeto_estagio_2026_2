@@ -81,6 +81,10 @@
                     <p class="mt-1 text-sm leading-6 text-slate-700">{{ consulta.observacoes }}</p>
                   </div>
                 {% endif %}
+                <a href="{% url 'consulta_medico_detail' consulta.id %}" class="mt-4 inline-flex items-center text-sm font-bold text-primary-700 transition hover:text-primary-800">
+                  {% if consulta.atendimento %}Ver e editar atendimento{% else %}Registrar atendimento{% endif %}
+                  <span class="ml-1" aria-hidden="true">→</span>
+                </a>
               </article>
             {% endfor %}
           </div>

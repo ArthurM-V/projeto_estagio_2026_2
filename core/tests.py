@@ -5,7 +5,7 @@ from django.test import TestCase
 from django.urls import reverse
 from django.utils import timezone
 
-from .models import Consulta, Especialidade, Medico, Paciente
+from .models import Atendimento, Consulta, Especialidade, Medico, Paciente
 
 
 class AgendamentoConsultaTests(TestCase):
@@ -94,11 +94,16 @@ class AcessoAosPaineisTests(TestCase):
             especialidade=especialidade,
             usuario=usuario_medico,
         )
+        usuario_outro_medico = get_user_model().objects.create_user(
+            username="outro-medico",
+            password="senha-segura-para-teste",
+        )
         self.outro_medico = Medico.objects.create(
             nome="Lucas Freitas",
             crm="SP 456789",
             email="lucas@smarthealth.test",
             especialidade=especialidade,
+            usuario=usuario_outro_medico,
         )
         self.usuario_sem_perfil = get_user_model().objects.create_user(
             username="sem-perfil",
@@ -168,3 +173,35 @@ class AcessoAosPaineisTests(TestCase):
 
         self.assertEqual(self.client.get(reverse("dashboard")).status_code, 403)
         self.assertEqual(self.client.get(reverse("medico_dashboard")).status_code, 403)
+
+    def test_medico_cria_atendimento_em_consulta_propria(self):
+        consulta = Consulta.objects.get(medico=self.medico)
+        self.client.force_login(self.medico.usuario)
+
+        resposta = self.client.post(
+            reverse("consulta_medico_detail", args=[consulta.id]),
+            {
+                "sintomas": "Dor de cabeça há dois dias.",
+                "diagnostico": "",
+                "conduta": "Orientado repouso e hidratação.",
+                "observacoes": "Retornar caso os sintomas persistam.",
+            },
+        )
+
+        self.assertRedirects(
+            resposta,
+            reverse("consulta_medico_detail", args=[consulta.id]),
+        )
+        atendimento = Atendimento.objects.get(consulta=consulta)
+        self.assertEqual(atendimento.sintomas, "Dor de cabeça há dois dias.")
+        self.assertEqual(atendimento.diagnostico, "")
+
+    def test_medico_nao_acessa_consulta_de_outro_medico(self):
+        consulta_de_outro_medico = Consulta.objects.get(medico=self.outro_medico)
+        self.client.force_login(self.medico.usuario)
+
+        resposta = self.client.get(
+            reverse("consulta_medico_detail", args=[consulta_de_outro_medico.id])
+        )
+
+        self.assertEqual(resposta.status_code, 404)

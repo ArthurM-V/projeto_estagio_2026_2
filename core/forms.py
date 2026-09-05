@@ -3,7 +3,7 @@ from datetime import date, datetime
 from django import forms
 from django.utils import timezone
 
-from .models import Consulta, Medico, Paciente
+from .models import Atendimento, Consulta, Medico, Paciente
 from .scheduling import horarios_disponiveis
 
 
@@ -120,3 +120,50 @@ class AgendamentoConsultaForm(forms.Form):
                 )
 
         return cleaned_data
+
+
+class AtendimentoForm(forms.ModelForm):
+    """Registra as informações clínicas de uma consulta."""
+
+    sintomas = forms.CharField(
+        label="Sintomas",
+        widget=forms.Textarea(
+            attrs={
+                "rows": 4,
+                "placeholder": "Descreva os sintomas relatados pelo paciente.",
+                "class": "w-full resize-y rounded-xl border border-slate-300 px-3.5 py-3 text-sm leading-6 outline-none transition focus:border-primary-500 focus:ring-4 focus:ring-primary-100",
+            }
+        ),
+    )
+
+    class Meta:
+        model = Atendimento
+        fields = ("sintomas", "diagnostico", "conduta", "observacoes")
+        labels = {
+            "diagnostico": "Diagnóstico (opcional)",
+            "conduta": "Conduta (opcional)",
+            "observacoes": "Observações clínicas (opcional)",
+        }
+        widgets = {
+            "diagnostico": forms.Textarea(
+                attrs={
+                    "rows": 3,
+                    "placeholder": "Registre o diagnóstico, se houver.",
+                    "class": "w-full resize-y rounded-xl border border-slate-300 px-3.5 py-3 text-sm leading-6 outline-none transition focus:border-primary-500 focus:ring-4 focus:ring-primary-100",
+                }
+            ),
+            "conduta": forms.Textarea(
+                attrs={
+                    "rows": 3,
+                    "placeholder": "Descreva a conduta adotada.",
+                    "class": "w-full resize-y rounded-xl border border-slate-300 px-3.5 py-3 text-sm leading-6 outline-none transition focus:border-primary-500 focus:ring-4 focus:ring-primary-100",
+                }
+            ),
+            "observacoes": forms.Textarea(
+                attrs={
+                    "rows": 3,
+                    "placeholder": "Inclua observações relevantes.",
+                    "class": "w-full resize-y rounded-xl border border-slate-300 px-3.5 py-3 text-sm leading-6 outline-none transition focus:border-primary-500 focus:ring-4 focus:ring-primary-100",
+                }
+            ),
+        }

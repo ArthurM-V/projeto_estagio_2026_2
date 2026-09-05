@@ -1,0 +1,100 @@
+{% extends "core/base.html" %}
+
+{% block title %}Atendimento | SmartHealth{% endblock %}
+
+{% block header %}
+  <header class="border-b border-slate-200 bg-white">
+    <nav class="mx-auto flex max-w-4xl items-center justify-between gap-4 px-5 py-4 lg:px-8" aria-label="Navegação do atendimento">
+      <a href="{% url 'medico_dashboard' %}" class="inline-flex items-center gap-2 text-sm font-semibold text-primary-700 transition hover:text-primary-800">
+        <span aria-hidden="true">←</span>
+        Voltar para minhas consultas
+      </a>
+      <form method="post" action="{% url 'logout' %}">
+        {% csrf_token %}
+        <button type="submit" class="rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700 transition hover:border-primary-600 hover:text-primary-700">Sair</button>
+      </form>
+    </nav>
+  </header>
+{% endblock %}
+
+{% block content %}
+  <section class="mx-auto max-w-4xl px-5 py-8 lg:px-8 lg:py-10">
+    <div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
+      <p class="text-sm font-bold uppercase tracking-[0.18em] text-primary-700">Consulta</p>
+      <div class="mt-3 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h1 class="text-3xl font-bold tracking-tight text-slate-900">{{ consulta.paciente.nome }}</h1>
+          <p class="mt-2 text-sm text-slate-600">{{ consulta.data_horario|date:"d/m/Y" }} às {{ consulta.data_horario|time:"H:i" }} · {{ consulta.medico.especialidade.nome }}</p>
+        </div>
+        {% if consulta.status == "pendente" %}
+          <span class="w-fit rounded-full bg-amber-100 px-3 py-1 text-xs font-bold text-amber-800">Pendente</span>
+        {% elif consulta.status == "confirmada" %}
+          <span class="w-fit rounded-full bg-emerald-100 px-3 py-1 text-xs font-bold text-emerald-800">Confirmada</span>
+        {% elif consulta.status == "cancelada" %}
+          <span class="w-fit rounded-full bg-red-100 px-3 py-1 text-xs font-bold text-red-800">Cancelada</span>
+        {% elif consulta.status == "ausente" %}
+          <span class="w-fit rounded-full bg-orange-100 px-3 py-1 text-xs font-bold text-orange-800">Ausente</span>
+        {% else %}
+          <span class="w-fit rounded-full bg-sky-100 px-3 py-1 text-xs font-bold text-sky-800">Concluída</span>
+        {% endif %}
+      </div>
+
+      {% if consulta.observacoes %}
+        <div class="mt-6 rounded-xl bg-slate-50 px-4 py-3">
+          <p class="text-xs font-bold uppercase tracking-wide text-slate-500">Observações do agendamento</p>
+          <p class="mt-1 text-sm leading-6 text-slate-700">{{ consulta.observacoes }}</p>
+        </div>
+      {% endif %}
+    </div>
+
+    <section class="mt-8 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
+      <div>
+        <p class="text-sm font-bold uppercase tracking-[0.18em] text-primary-700">Atendimento clínico</p>
+        <h2 class="mt-2 text-2xl font-bold tracking-tight text-slate-900">{% if atendimento %}Atualizar registro{% else %}Registrar atendimento{% endif %}</h2>
+        <p class="mt-2 text-sm leading-6 text-slate-600">Registre somente informações necessárias ao atendimento desta consulta.</p>
+      </div>
+
+      <form id="form-atendimento" method="post" class="mt-7" novalidate>
+        {% csrf_token %}
+
+        {% if form.errors %}
+          <div class="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700" role="alert">
+            Revise os campos destacados antes de salvar o atendimento.
+          </div>
+        {% endif %}
+
+        {{ form.as_p }}
+
+        <button type="submit" class="inline-flex w-full items-center justify-center rounded-xl bg-primary-600 px-5 py-3.5 text-sm font-bold text-white shadow-sm transition hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2">
+          {% if atendimento %}Salvar alterações{% else %}Salvar atendimento{% endif %}
+        </button>
+      </form>
+
+      {% if atendimento %}
+        <p class="mt-4 text-center text-xs text-slate-500">Última atualização: {{ atendimento.atualizado_em|date:"d/m/Y" }} às {{ atendimento.atualizado_em|time:"H:i" }}.</p>
+      {% endif %}
+    </section>
+  </section>
+{% endblock %}
+
+{% block extra_head %}
+  <style>
+    #form-atendimento > p {
+      margin-top: 1.25rem;
+    }
+    #form-atendimento label {
+      display: block;
+      margin-bottom: .375rem;
+      font-size: .875rem;
+      font-weight: 600;
+      color: #334155;
+    }
+    #form-atendimento .errorlist {
+      margin: 0 0 .375rem;
+      padding: 0;
+      color: #dc2626;
+      font-size: .75rem;
+      list-style: none;
+    }
+  </style>
+{% endblock %}

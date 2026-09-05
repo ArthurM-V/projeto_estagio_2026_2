@@ -9,8 +9,8 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views.decorators.http import require_GET
 
-from .forms import AgendamentoConsultaForm
-from .models import Consulta, Especialidade, Medico, Paciente
+from .forms import AgendamentoConsultaForm, AtendimentoForm
+from .models import Atendimento, Consulta, Especialidade, Medico, Paciente
 from .scheduling import horarios_disponiveis
 
 
@@ -89,19 +89,26 @@ def horarios_disponiveis_view(request):
     )
 
 
+def _obter_medico_ativo(usuario):
+    """Retorna o médico associado a um usuário autorizado."""
+    try:
+        medico = usuario.medico
+    except Medico.DoesNotExist:
+        raise PermissionDenied("Seu usuário não possui acesso ao painel médico.")
+
+    if not medico.ativo:
+        raise PermissionDenied("O cadastro deste médico está inativo.")
+
+    return medico
+
+
 @login_required
 def dashboard(request):
     """Encaminha cada perfil autenticado para o painel permitido."""
     if request.user.is_superuser:
         return _dashboard_administrativo(request)
 
-    try:
-        medico = request.user.medico
-    except Medico.DoesNotExist:
-        raise PermissionDenied("Seu usuário não possui acesso a um painel.")
-
-    if not medico.ativo:
-        raise PermissionDenied("O cadastro deste médico está inativo.")
+    _obter_medico_ativo(request.user)
 
     return redirect("medico_dashboard")
 
@@ -150,17 +157,11 @@ def medico_dashboard(request):
     if request.user.is_superuser:
         return redirect("dashboard")
 
-    try:
-        medico = request.user.medico
-    except Medico.DoesNotExist:
-        raise PermissionDenied("Seu usuário não possui acesso ao painel médico.")
-
-    if not medico.ativo:
-        raise PermissionDenied("O cadastro deste médico está inativo.")
+    medico = _obter_medico_ativo(request.user)
 
     consultas = (
         Consulta.objects.filter(medico=medico)
-        .select_related("paciente")
+        .select_related("paciente", "atendimento")
         .order_by("data_horario")
     )
 
@@ -174,6 +175,46 @@ def medico_dashboard(request):
                 data_horario__date=timezone.localdate()
             ).count(),
             "pendentes": consultas.filter(status=Consulta.Status.PENDENTE).count(),
+        },
+    )
+
+
+@login_required
+def consulta_medico_detail(request, consulta_id):
+    """Permite atendimento clínico apenas na consulta do médico logado."""
+    if request.user.is_superuser:
+        return redirect("dashboard")
+
+    medico = _obter_medico_ativo(request.user)
+    consulta = get_object_or_404(
+        Consulta.objects.select_related("paciente", "medico__especialidade"),
+        pk=consulta_id,
+        medico=medico,
+    )
+
+    try:
+        atendimento = consulta.atendimento
+    except Atendimento.DoesNotExist:
+        atendimento = None
+
+    if request.method == "POST":
+        form = AtendimentoForm(request.POST, instance=atendimento)
+        if form.is_valid():
+            atendimento = form.save(commit=False)
+            atendimento.consulta = consulta
+            atendimento.save()
+            messages.success(request, "Atendimento clínico salvo com sucesso.")
+            return redirect("consulta_medico_detail", consulta_id=consulta.id)
+    else:
+        form = AtendimentoForm(instance=atendimento)
+
+    return render(
+        request,
+        "core/consulta_medico_detail.html",
+        {
+            "consulta": consulta,
+            "atendimento": atendimento,
+            "form": form,
         },
     )
 
