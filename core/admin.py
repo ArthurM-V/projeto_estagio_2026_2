@@ -3,14 +3,11 @@ from django.contrib import admin
 from .models import (
     Atendimento,
     Consulta,
-    Convenio,
     Especialidade,
     Exame,
     Medicamento,
     Medico,
     Paciente,
-    PacienteConvenio,
-    Pagamento,
     Prontuario,
     Receita,
     ReceitaMedicamento,
@@ -38,13 +35,10 @@ admin.site.register(
         Atendimento,
         Medico,
         Prontuario,
-        Convenio,
-        PacienteConvenio,
         Medicamento,
         Receita,
         ReceitaMedicamento,
         Exame,
         SolicitacaoExame,
-        Pagamento,
     ]
 )

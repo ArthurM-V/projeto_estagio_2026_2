@@ -1,7 +1,7 @@
 from django.core.management.base import BaseCommand
 from django.db import transaction
 
-from core.models import Convenio, Especialidade, Exame, Medicamento, Medico
+from core.models import Especialidade, Exame, Medicamento, Medico
 
 
 ESPECIALIDADES = [
@@ -52,12 +52,6 @@ MEDICOS = [
         "telefone": "(11) 4000-1004",
         "especialidade": "Pediatria",
     },
-]
-
-CONVENIOS = [
-    {"nome": "Vida Plena Saúde", "cnpj": "12.345.678/0001-90", "telefone": "0800 100 1000"},
-    {"nome": "Bem-Estar Assistência", "cnpj": "23.456.789/0001-01", "telefone": "0800 200 2000"},
-    {"nome": "Saúde Integral", "cnpj": "34.567.890/0001-12", "telefone": "0800 300 3000"},
 ]
 
 EXAMES = [
@@ -138,16 +132,6 @@ class Command(BaseCommand):
                 )
                 self._registrar_resultado(criado, totais)
 
-            for dados in CONVENIOS:
-                _, criado = Convenio.objects.update_or_create(
-                    cnpj=dados["cnpj"],
-                    defaults={
-                        "nome": dados["nome"],
-                        "telefone": dados["telefone"],
-                        "ativo": True,
-                    },
-                )
-                self._registrar_resultado(criado, totais)
 
             for dados in EXAMES:
                 _, criado = Exame.objects.update_or_create(

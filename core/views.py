@@ -531,7 +531,7 @@ def excluir_consulta(request, consulta_id):
     except ProtectedError:
         messages.error(
             request,
-            "Esta consulta possui registros clínicos ou financeiros vinculados e não pode ser excluída.",
+            "Esta consulta possui registros clínicos vinculados e não pode ser excluída.",
         )
         return redirect("consulta_administrativo_detail", consulta_id=consulta.id)
 

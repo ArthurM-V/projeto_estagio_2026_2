@@ -2,7 +2,6 @@ from django.conf import settings
 from django.db import models
 from django.db.models import Q
 
-
 class Especialidade(models.Model):
     nome = models.CharField(max_length=100, unique=True)
     descricao = models.TextField(blank=True)
@@ -83,39 +82,6 @@ class Prontuario(models.Model):
 
     def __str__(self):
         return f"Prontuário — {self.paciente}"
-
-
-class Convenio(models.Model):
-    nome = models.CharField(max_length=100, unique=True)
-    cnpj = models.CharField("CNPJ", max_length=18, unique=True)
-    telefone = models.CharField(max_length=20, blank=True)
-    ativo = models.BooleanField(default=True)
-
-    class Meta:
-        ordering = ("nome",)
-        verbose_name = "convênio"
-        verbose_name_plural = "convênios"
-
-    def __str__(self):
-        return self.nome
-
-
-class PacienteConvenio(models.Model):
-    paciente = models.ForeignKey(Paciente, on_delete=models.CASCADE, related_name="convenios")
-    convenio = models.ForeignKey(Convenio, on_delete=models.PROTECT, related_name="pacientes")
-    numero_carteirinha = models.CharField(max_length=50)
-    validade = models.DateField(null=True, blank=True)
-    ativo = models.BooleanField(default=True)
-
-    class Meta:
-        constraints = [
-            models.UniqueConstraint(fields=("paciente", "convenio"), name="paciente_convenio_unico")
-        ]
-        verbose_name = "convênio do paciente"
-        verbose_name_plural = "convênios dos pacientes"
-
-    def __str__(self):
-        return f"{self.paciente} — {self.convenio}"
 
 
 class Consulta(models.Model):
@@ -248,31 +214,3 @@ class SolicitacaoExame(models.Model):
 
     def __str__(self):
         return f"{self.exame} — {self.consulta}"
-
-
-class Pagamento(models.Model):
-    class Metodo(models.TextChoices):
-        DINHEIRO = "dinheiro", "Dinheiro"
-        CARTAO = "cartao", "Cartão"
-        PIX = "pix", "PIX"
-        CONVENIO = "convenio", "Convênio"
-
-    class Status(models.TextChoices):
-        PENDENTE = "pendente", "Pendente"
-        PAGO = "pago", "Pago"
-        ESTORNADO = "estornado", "Estornado"
-
-    consulta = models.ForeignKey(Consulta, on_delete=models.PROTECT, related_name="pagamentos")
-    valor = models.DecimalField(max_digits=10, decimal_places=2)
-    metodo = models.CharField(max_length=10, choices=Metodo.choices)
-    status = models.CharField(max_length=10, choices=Status.choices, default=Status.PENDENTE)
-    pago_em = models.DateTimeField(null=True, blank=True)
-    criado_em = models.DateTimeField(auto_now_add=True)
-
-    class Meta:
-        ordering = ("-criado_em",)
-        verbose_name = "pagamento"
-        verbose_name_plural = "pagamentos"
-
-    def __str__(self):
-        return f"R$ {self.valor} — {self.consulta}"
