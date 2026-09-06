@@ -46,6 +46,11 @@ urlpatterns = [
         name="salvar_prontuario",
     ),
     path(
+        "painel/medico/consultas/<int:consulta_id>/concluir/",
+        views.concluir_consulta_medico,
+        name="concluir_consulta_medico",
+    ),
+    path(
         "painel/medico/consultas/<int:consulta_id>/exames/solicitar/",
         views.solicitar_exame,
         name="solicitar_exame",

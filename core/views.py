@@ -674,6 +674,25 @@ def salvar_prontuario(request, consulta_id):
 
 @login_required
 @require_POST
+def concluir_consulta_medico(request, consulta_id):
+    if request.user.is_superuser:
+        return redirect("dashboard")
+
+    medico = _obter_medico_ativo(request.user)
+    consulta = get_object_or_404(Consulta, pk=consulta_id, medico=medico)
+    if consulta.status != Consulta.Status.CONFIRMADA:
+        messages.error(request, "Somente consultas confirmadas podem ser concluídas pelo médico.")
+    elif not _obter_atendimento(consulta):
+        messages.error(request, "Registre o atendimento clínico antes de concluir a consulta.")
+    else:
+        consulta.status = Consulta.Status.CONCLUIDA
+        consulta.save(update_fields=("status",))
+        messages.success(request, "Consulta marcada como concluída.")
+    return redirect("consulta_medico_detail", consulta_id=consulta.id)
+
+
+@login_required
+@require_POST
 def solicitar_exame(request, consulta_id):
     if request.user.is_superuser:
         return redirect("dashboard")
