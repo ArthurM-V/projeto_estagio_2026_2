@@ -4,19 +4,15 @@
 
 {% block extra_head %}
   <style>
-    #painel-medicos form p { display: flex; flex-direction: column; margin: 0; }
-    #painel-medicos form label { display: block; order: 1; margin-bottom: .375rem; font-size: .875rem; font-weight: 600; color: #334155; }
-    #painel-medicos form input,
-    #painel-medicos form select { order: 2; }
-    #painel-medicos form .errorlist { order: 3; margin: .375rem 0 0; padding: 0; color: #dc2626; font-size: .8rem; line-height: 1.3; list-style: none; }
-    #painel-medicos .formulario-medico > .errorlist { grid-column: 1 / -1; }
+    #painel-medicos .campo-formulario label { display: block; margin-bottom: .375rem; font-size: .875rem; font-weight: 600; color: #334155; }
+    #painel-medicos .campo-formulario .errorlist { margin: .375rem 0 0; padding: 0; color: #dc2626; font-size: .8rem; line-height: 1.3; list-style: none; }
     @media (min-width: 640px) {
       #painel-medicos .formulario-medico { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 1rem; }
-      #painel-medicos .formulario-medico p:nth-of-type(1) { grid-column: span 6; }
-      #painel-medicos .formulario-medico p:nth-of-type(2) { grid-column: span 2; }
-      #painel-medicos .formulario-medico p:nth-of-type(3) { grid-column: span 4; }
-      #painel-medicos .formulario-medico p:nth-of-type(4),
-      #painel-medicos .formulario-medico p:nth-of-type(5) { grid-column: span 3; }
+      #painel-medicos .campo-nome { grid-column: span 6; }
+      #painel-medicos .campo-crm { grid-column: span 2; }
+      #painel-medicos .campo-email { grid-column: span 4; }
+      #painel-medicos .campo-telefone,
+      #painel-medicos .campo-especialidade { grid-column: span 3; }
       #painel-medicos .formulario-medico button { grid-column: span 6; }
     }
   </style>

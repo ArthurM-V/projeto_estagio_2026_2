@@ -22,10 +22,29 @@ from .scheduling import horarios_da_clinica, horarios_disponiveis
 
 
 class AgendamentoConsultaForm(forms.Form):
-    nome = forms.CharField(label="Nome completo", max_length=120)
-    cpf = forms.CharField(label="CPF", max_length=14)
-    email = forms.EmailField(label="E-mail")
-    telefone = forms.CharField(label="Telefone", max_length=20)
+    nome = forms.CharField(
+        label="Nome completo",
+        max_length=120,
+        widget=forms.TextInput(attrs={"autocomplete": "name"}),
+    )
+    cpf = forms.CharField(
+        label="CPF",
+        max_length=14,
+        widget=forms.TextInput(
+            attrs={"inputmode": "numeric", "autocomplete": "off", "placeholder": "000.000.000-00"}
+        ),
+    )
+    email = forms.EmailField(
+        label="E-mail",
+        widget=forms.EmailInput(attrs={"autocomplete": "email", "placeholder": "voce@exemplo.com"}),
+    )
+    telefone = forms.CharField(
+        label="Telefone",
+        max_length=20,
+        widget=forms.TextInput(
+            attrs={"inputmode": "tel", "autocomplete": "tel", "placeholder": "(00) 00000-0000"}
+        ),
+    )
     data_nascimento = forms.DateField(
         label="Data de nascimento",
         widget=forms.DateInput(attrs={"type": "date"}),
@@ -81,12 +100,26 @@ class AgendamentoConsultaForm(forms.Form):
         ]
 
     def clean_cpf(self):
-        cpf = "".join(caractere for caractere in self.cleaned_data["cpf"] if caractere.isdigit())
+        cpf_informado = self.cleaned_data["cpf"].strip()
+        if not re.fullmatch(r"\d{3}\.?\d{3}\.?\d{3}-?\d{2}", cpf_informado):
+            raise forms.ValidationError("Informe o CPF apenas com números, no formato 000.000.000-00.")
 
-        if len(cpf) != 11:
-            raise forms.ValidationError("Informe um CPF com 11 dígitos.")
+        cpf = re.sub(r"\D", "", cpf_informado)
 
         return cpf
+
+    def clean_nome(self):
+        nome = " ".join(self.cleaned_data["nome"].split())
+        partes = nome.split()
+        if len(partes) < 2 or any(not re.fullmatch(r"[A-Za-zÀ-ÖØ-öø-ÿ]+(?:[-'][A-Za-zÀ-ÖØ-öø-ÿ]+)*", parte) for parte in partes):
+            raise forms.ValidationError("Informe nome e sobrenome, usando apenas letras.")
+        return nome
+
+    def clean_telefone(self):
+        telefone_informado = self.cleaned_data["telefone"].strip()
+        if not re.fullmatch(r"(?:\(\d{2}\)|\d{2})[ .-]?\d{4,5}-?\d{4}", telefone_informado):
+            raise forms.ValidationError("Informe um telefone com DDD e 8 ou 9 dígitos, como (11) 99999-9999.")
+        return re.sub(r"\D", "", telefone_informado)
 
     def clean_data_nascimento(self):
         data_nascimento = self.cleaned_data["data_nascimento"]
@@ -433,10 +466,10 @@ class MedicoCadastroForm(forms.ModelForm):
         model = Medico
         fields = ("nome", "crm", "email", "telefone", "especialidade")
         widgets = {
-            "nome": forms.TextInput(attrs={"class": CAMPO_PADRAO}),
-            "crm": forms.TextInput(attrs={"class": CAMPO_PADRAO}),
-            "email": forms.EmailInput(attrs={"class": CAMPO_PADRAO}),
-            "telefone": forms.TextInput(attrs={"class": CAMPO_PADRAO}),
+            "nome": forms.TextInput(attrs={"class": CAMPO_PADRAO, "autocomplete": "name", "placeholder": "Nome completo"}),
+            "crm": forms.TextInput(attrs={"class": CAMPO_PADRAO, "autocomplete": "off", "placeholder": "SP 123456"}),
+            "email": forms.EmailInput(attrs={"class": CAMPO_PADRAO, "autocomplete": "email", "placeholder": "medico@exemplo.com"}),
+            "telefone": forms.TextInput(attrs={"class": CAMPO_PADRAO, "inputmode": "tel", "autocomplete": "tel", "placeholder": "(00) 00000-0000"}),
             "especialidade": forms.Select(attrs={"class": CAMPO_PADRAO}),
         }
 
@@ -450,16 +483,21 @@ class MedicoCadastroForm(forms.ModelForm):
         crm = self.cleaned_data["crm"].upper().strip()
         if not re.fullmatch(r"[A-Z]{2}\s?\d{4,6}", crm):
             raise forms.ValidationError("Informe o CRM no formato UF seguido de 4 a 6 dígitos, como SP 123456.")
-        return crm
+        return f"{crm[:2]} {crm[2:].strip()}"
+
+    def clean_email(self):
+        email = self.cleaned_data["email"].lower()
+        if Medico.objects.filter(email__iexact=email).exclude(pk=self.instance.pk).exists():
+            raise forms.ValidationError("Já existe um médico cadastrado com este e-mail.")
+        return email
 
     def clean_telefone(self):
-        telefone = self.cleaned_data["telefone"]
-        digitos = "".join(caractere for caractere in telefone if caractere.isdigit())
-        if telefone and len(digitos) not in (10, 11):
-            raise forms.ValidationError("Informe um telefone com DDD e 8 ou 9 dígitos.")
-        if telefone and any(not (caractere.isdigit() or caractere in " ()-+") for caractere in telefone):
-            raise forms.ValidationError("O telefone não pode conter letras ou símbolos não numéricos.")
-        return telefone
+        telefone = self.cleaned_data["telefone"].strip()
+        if not telefone:
+            return telefone
+        if not re.fullmatch(r"(?:\(\d{2}\)|\d{2})[ .-]?\d{4,5}-?\d{4}", telefone):
+            raise forms.ValidationError("Informe um telefone com DDD e 8 ou 9 dígitos, como (11) 99999-9999.")
+        return re.sub(r"\D", "", telefone)
 
 
 class ConfirmacaoRedefinicaoSenhaForm(forms.Form):

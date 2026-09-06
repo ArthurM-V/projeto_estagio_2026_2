@@ -18,14 +18,14 @@
         row-gap: 1rem;
       }
 
-      #form-agendamento > p {
+      #form-agendamento > .campo-formulario {
         margin: 0;
       }
 
-      #form-agendamento > p:has(#id_nome),
-      #form-agendamento > p:has(#id_medico),
-      #form-agendamento > p:has(#id_observacoes),
-      #form-agendamento > .errorlist,
+      #form-agendamento > .campo-nome,
+      #form-agendamento > .campo-medico,
+      #form-agendamento > .campo-observacoes,
+      #form-agendamento > .erros-gerais,
       #form-agendamento > button,
       #form-agendamento > .formulario-aviso {
         grid-column: 1 / -1;
@@ -243,10 +243,59 @@
           class="mt-7 [&_.errorlist]:mt-1 [&_.errorlist]:list-none [&_.errorlist]:p-0 [&_.errorlist]:text-xs [&_.errorlist]:text-red-600 [&_input]:mt-1.5 [&_input]:w-full [&_input]:rounded-xl [&_input]:border [&_input]:border-slate-300 [&_input]:px-3.5 [&_input]:py-3 [&_input]:text-sm [&_input]:outline-none [&_input:focus]:border-primary-500 [&_input:focus]:ring-4 [&_input:focus]:ring-primary-100 [&_label]:block [&_label]:text-sm [&_label]:font-semibold [&_label]:text-slate-700 [&_p]:mb-4 [&_select]:mt-1.5 [&_select]:w-full [&_select]:rounded-xl [&_select]:border [&_select]:border-slate-300 [&_select]:bg-white [&_select]:px-3.5 [&_select]:py-3 [&_select]:text-sm [&_select]:outline-none [&_select:focus]:border-primary-500 [&_select:focus]:ring-4 [&_select:focus]:ring-primary-100 [&_textarea]:mt-1.5 [&_textarea]:w-full [&_textarea]:resize-y [&_textarea]:rounded-xl [&_textarea]:border [&_textarea]:border-slate-300 [&_textarea]:px-3.5 [&_textarea]:py-3 [&_textarea]:text-sm [&_textarea]:outline-none [&_textarea:focus]:border-primary-500 [&_textarea:focus]:ring-4 [&_textarea:focus]:ring-primary-100"
           x-data="{ enviando: false }"
           @submit="enviando = true"
-          novalidate
         >
           {% csrf_token %}
-          {{ form.as_p }}
+          {% if form.non_field_errors %}
+            <div class="erros-gerais rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700" role="alert">
+              {{ form.non_field_errors }}
+            </div>
+          {% endif %}
+
+          <div class="campo-formulario campo-nome">
+            {{ form.nome.label_tag }}
+            {{ form.nome }}
+            {{ form.nome.errors }}
+          </div>
+          <div class="campo-formulario">
+            {{ form.cpf.label_tag }}
+            {{ form.cpf }}
+            {{ form.cpf.errors }}
+          </div>
+          <div class="campo-formulario">
+            {{ form.email.label_tag }}
+            {{ form.email }}
+            {{ form.email.errors }}
+          </div>
+          <div class="campo-formulario">
+            {{ form.telefone.label_tag }}
+            {{ form.telefone }}
+            {{ form.telefone.errors }}
+          </div>
+          <div class="campo-formulario">
+            {{ form.data_nascimento.label_tag }}
+            {{ form.data_nascimento }}
+            {{ form.data_nascimento.errors }}
+          </div>
+          <div class="campo-formulario campo-medico">
+            {{ form.medico.label_tag }}
+            {{ form.medico }}
+            {{ form.medico.errors }}
+          </div>
+          <div class="campo-formulario">
+            {{ form.data.label_tag }}
+            {{ form.data }}
+            {{ form.data.errors }}
+          </div>
+          <div class="campo-formulario">
+            {{ form.horario.label_tag }}
+            {{ form.horario }}
+            {{ form.horario.errors }}
+          </div>
+          <div class="campo-formulario campo-observacoes">
+            {{ form.observacoes.label_tag }}
+            {{ form.observacoes }}
+            {{ form.observacoes.errors }}
+          </div>
 
           <button type="submit" :disabled="enviando" class="flex w-full items-center justify-center rounded-xl bg-primary-600 px-5 py-3.5 text-sm font-bold text-white shadow-sm transition hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 disabled:cursor-wait disabled:opacity-70">
             <span x-show="!enviando">Enviar solicitação</span>

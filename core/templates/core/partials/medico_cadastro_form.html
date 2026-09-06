@@ -1,1 +1,39 @@
-<section class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm"><h3 class="text-xl font-bold text-slate-900">Cadastrar médico</h3><p class="mt-2 text-sm text-slate-600">O acesso ao painel é criado automaticamente.</p><form method="post" action="{% url 'cadastrar_medico' %}" class="formulario-medico mt-6">{% csrf_token %}{{ form_medico.as_p }}<button class="w-full rounded-xl bg-primary-600 px-4 py-3 text-sm font-bold text-white">Criar médico e acesso</button></form></section>
+<section class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+  <h3 class="text-xl font-bold text-slate-900">Cadastrar médico</h3>
+  <p class="mt-2 text-sm text-slate-600">O acesso ao painel é criado automaticamente.</p>
+
+  <form method="post" action="{% url 'cadastrar_medico' %}" class="formulario-medico mt-6">
+    {% csrf_token %}
+    {% if form_medico.non_field_errors %}
+      <div class="col-span-full rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700" role="alert">{{ form_medico.non_field_errors }}</div>
+    {% endif %}
+
+    <div class="campo-formulario campo-nome">
+      {{ form_medico.nome.label_tag }}
+      {{ form_medico.nome }}
+      {{ form_medico.nome.errors }}
+    </div>
+    <div class="campo-formulario campo-crm">
+      {{ form_medico.crm.label_tag }}
+      {{ form_medico.crm }}
+      {{ form_medico.crm.errors }}
+    </div>
+    <div class="campo-formulario campo-email">
+      {{ form_medico.email.label_tag }}
+      {{ form_medico.email }}
+      {{ form_medico.email.errors }}
+    </div>
+    <div class="campo-formulario campo-telefone">
+      {{ form_medico.telefone.label_tag }}
+      {{ form_medico.telefone }}
+      {{ form_medico.telefone.errors }}
+    </div>
+    <div class="campo-formulario campo-especialidade">
+      {{ form_medico.especialidade.label_tag }}
+      {{ form_medico.especialidade }}
+      {{ form_medico.especialidade.errors }}
+    </div>
+
+    <button class="w-full rounded-xl bg-primary-600 px-4 py-3 text-sm font-bold text-white transition hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2">Criar médico e acesso</button>
+  </form>
+</section>
