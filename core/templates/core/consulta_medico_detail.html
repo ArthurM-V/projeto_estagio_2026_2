@@ -29,7 +29,7 @@
 {% endblock %} {% block content %}
 <section
   class="mx-auto max-w-7xl px-5 py-8 lg:px-8 lg:py-10"
-  x-data="{ modalExame: {{ form_exame.errors|yesno:'true,false' }}, modalReceita: {{ form_receita.errors|yesno:'true,false' }} }"
+  x-data="{ modalExame: {{ form_exame.errors|yesno:'true,false' }}, modalReceita: {{ form_receita.errors|yesno:'true,false' }}, modalProntuario: false, modalVisualizarProntuario: false }"
 >
   <div class="grid gap-8 lg:grid-cols-2 lg:items-start">
     <div
@@ -76,6 +76,12 @@
         >
         {% endif %}
       </div>
+
+      <div class="mt-5 flex flex-wrap gap-2">
+        <button type="button" @click="modalProntuario = true" {% if not pode_atualizar_prontuario %}disabled{% endif %} class="inline-flex rounded-lg bg-primary-600 px-3 py-2 text-sm font-bold text-white transition hover:bg-primary-700 disabled:cursor-not-allowed disabled:bg-slate-300">{% if prontuario %}Atualizar prontuário{% else %}Criar prontuário{% endif %}</button>
+        {% if prontuario %}<button type="button" @click="modalVisualizarProntuario = true" class="inline-flex rounded-lg border border-slate-300 px-3 py-2 text-sm font-bold text-slate-700 transition hover:bg-slate-50">Ver prontuário</button>{% endif %}
+      </div>
+      {% if not pode_atualizar_prontuario %}<p class="mt-2 text-xs text-slate-500">{% if consulta.status == "concluida" %}O prontuário não pode ser atualizado após a conclusão da consulta.{% else %}Não há novas alterações clínicas para registrar.{% endif %}</p>{% endif %}
 
       {% if consulta.observacoes %}
       <div class="mt-6 rounded-xl bg-slate-50 px-4 py-3">
@@ -386,6 +392,8 @@
       </div>
     </div>
   </div>
+{% include "core/partials/prontuario_modal_medico.html" %}
+{% include "core/partials/prontuario_visualizacao_modal.html" %}
 </section>
 {% endblock %} {% block extra_head %}
 <style>

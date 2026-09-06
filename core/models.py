@@ -71,9 +71,9 @@ class Paciente(models.Model):
 
 class Prontuario(models.Model):
     paciente = models.OneToOneField(Paciente, on_delete=models.CASCADE, related_name="prontuario")
-    alergias = models.TextField(blank=True)
-    historico_medico = models.TextField(blank=True)
-    observacoes = models.TextField(blank=True)
+    anamnese = models.TextField(blank=True)
+    evolucao_clinica = models.TextField(blank=True)
+    prescricoes = models.TextField(blank=True)
     atualizado_em = models.DateTimeField(auto_now=True)
 
     class Meta:
@@ -136,7 +136,14 @@ class Medicamento(models.Model):
 
 
 class Atendimento(models.Model):
+    class Sexo(models.TextChoices):
+        FEMININO = "feminino", "Feminino"
+        MASCULINO = "masculino", "Masculino"
+        OUTRO = "outro", "Outro"
+        NAO_INFORMADO = "nao_informado", "Prefiro não informar"
+
     consulta = models.OneToOneField(Consulta, on_delete=models.PROTECT, related_name="atendimento")
+    sexo = models.CharField(max_length=15, choices=Sexo.choices, blank=True)
     sintomas = models.TextField()
     diagnostico = models.TextField(blank=True)
     conduta = models.TextField(blank=True)

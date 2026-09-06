@@ -13,6 +13,7 @@ from .models import (
     Medicamento,
     Medico,
     Paciente,
+    Prontuario,
     Receita,
     ReceitaMedicamento,
     Especialidade,
@@ -317,13 +318,20 @@ class AtendimentoForm(forms.ModelForm):
 
     class Meta:
         model = Atendimento
-        fields = ("sintomas", "diagnostico", "conduta", "observacoes")
+        fields = ("sexo", "sintomas", "diagnostico", "conduta", "observacoes")
         labels = {
+            "sexo": "Sexo (opcional)",
             "diagnostico": "Diagnóstico (opcional)",
             "conduta": "Conduta (opcional)",
             "observacoes": "Observações clínicas (opcional)",
         }
+
         widgets = {
+            "sexo": forms.Select(
+                attrs={
+                    "class": "w-full rounded-xl border border-slate-300 bg-white px-3.5 py-3 text-sm outline-none transition focus:border-primary-500 focus:ring-4 focus:ring-primary-100",
+                }
+            ),
             "diagnostico": forms.Textarea(
                 attrs={
                     "rows": 3,

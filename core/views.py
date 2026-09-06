@@ -9,6 +9,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.core.exceptions import PermissionDenied
 from django.db import IntegrityError, transaction
+from django.db.models import Max
 from django.db.models.deletion import ProtectedError
 from django.core.paginator import Paginator
 from django.http import JsonResponse
@@ -27,7 +28,7 @@ from .forms import (
     ReceitaMedicamentoFormSet,
     SolicitacaoExameForm,
 )
-from .models import Atendimento, Consulta, Especialidade, Medico, Paciente, Receita, RedefinicaoSenhaMedico
+from .models import Atendimento, Consulta, Especialidade, Medico, Paciente, Prontuario, Receita, RedefinicaoSenhaMedico
 from .scheduling import horarios_disponiveis
 
 
@@ -131,6 +132,75 @@ def _obter_atendimento(consulta):
         return None
 
 
+def _estado_prontuario(consulta):
+    try:
+        prontuario = consulta.paciente.prontuario
+    except Prontuario.DoesNotExist:
+        prontuario = None
+
+    atendimento = _obter_atendimento(consulta)
+    alteracoes = [atendimento.atualizado_em] if atendimento else []
+    for campo in ("emitida_em", "solicitado_em"):
+        modelo = consulta.receitas if campo == "emitida_em" else consulta.solicitacoes_exames
+        data = modelo.aggregate(ultima=Max(campo))["ultima"]
+        if data:
+            alteracoes.append(data)
+    ultima_alteracao = max(alteracoes, default=None)
+    pode_atualizar = consulta.status != Consulta.Status.CONCLUIDA and (
+        prontuario is None or (ultima_alteracao and ultima_alteracao > prontuario.atualizado_em)
+    )
+    return prontuario, pode_atualizar
+
+
+def _dados_prontuario(consulta):
+    atendimento = _obter_atendimento(consulta)
+    dados_pessoais = []
+    if atendimento and atendimento.sexo:
+        dados_pessoais.append(f"Sexo: {atendimento.get_sexo_display()}")
+
+    anamnese_partes = dados_pessoais
+    if atendimento and atendimento.sintomas:
+        anamnese_partes.append(f"Queixas e sintomas:\n{atendimento.sintomas}")
+
+    evolucao_partes = [
+        f"Consulta de {timezone.localtime(consulta.data_horario):%d/%m/%Y às %H:%M}."
+    ]
+    if atendimento and atendimento.diagnostico:
+        evolucao_partes.append(f"Diagnóstico:\n{atendimento.diagnostico}")
+    if atendimento and atendimento.conduta:
+        evolucao_partes.append(f"Conduta:\n{atendimento.conduta}")
+    if atendimento and atendimento.observacoes:
+        evolucao_partes.append(f"Observações clínicas:\n{atendimento.observacoes}")
+
+    exames = consulta.solicitacoes_exames.select_related("exame").order_by("solicitado_em")
+    if exames:
+        itens_exames = [
+            f"- {solicitacao.exame.nome} ({solicitacao.get_status_display()})"
+            for solicitacao in exames
+        ]
+        evolucao_partes.append("Exames solicitados:\n" + "\n".join(itens_exames))
+
+    receitas = consulta.receitas.prefetch_related("itens__medicamento").order_by("emitida_em")
+    prescricoes_partes = []
+    if receitas:
+        itens_receita = []
+        for receita in receitas:
+            for item in receita.itens.all():
+                itens_receita.append(
+                    f"- {item.medicamento.nome}: {item.dosagem}, {item.frequencia}, por {item.duracao}."
+                )
+            if receita.orientacoes:
+                itens_receita.append(f"- Orientações: {receita.orientacoes}")
+        if itens_receita:
+            prescricoes_partes.append("Medicamentos e orientações:\n" + "\n".join(itens_receita))
+
+    return {
+        "anamnese": "\n\n".join(anamnese_partes),
+        "evolucao_clinica": "\n\n".join(evolucao_partes),
+        "prescricoes": "\n\n".join(prescricoes_partes),
+    }
+
+
 def _contexto_consulta_medico(
     consulta,
     form,
@@ -138,6 +208,8 @@ def _contexto_consulta_medico(
     form_receita=None,
     formset_receita=None,
 ):
+    prontuario, pode_atualizar_prontuario = _estado_prontuario(consulta)
+    dados_prontuario = _dados_prontuario(consulta)
     return {
         "consulta": consulta,
         "atendimento": _obter_atendimento(consulta),
@@ -152,6 +224,9 @@ def _contexto_consulta_medico(
             "exame"
         ).order_by("-solicitado_em"),
         "receitas": consulta.receitas.prefetch_related("itens__medicamento"),
+        "prontuario": prontuario,
+        "pode_atualizar_prontuario": pode_atualizar_prontuario,
+        "dados_prontuario": dados_prontuario,
     }
 
 
@@ -510,6 +585,7 @@ def consulta_administrativo_detail(request, consulta_id):
             "atendimento": _obter_atendimento(consulta),
             "status_form": status_form,
             "reagendamento_form": reagendamento_form,
+            "prontuario": _estado_prontuario(consulta)[0],
         },
     )
 
@@ -569,6 +645,31 @@ def consulta_medico_detail(request, consulta_id):
         "core/consulta_medico_detail.html",
         _contexto_consulta_medico(consulta, form, SolicitacaoExameForm()),
     )
+
+
+@login_required
+@require_POST
+def salvar_prontuario(request, consulta_id):
+    if request.user.is_superuser:
+        return redirect("dashboard")
+
+    medico = _obter_medico_ativo(request.user)
+    consulta = get_object_or_404(
+        Consulta.objects.select_related("paciente", "medico__especialidade"),
+        pk=consulta_id,
+        medico=medico,
+    )
+    prontuario, pode_atualizar = _estado_prontuario(consulta)
+    if not pode_atualizar:
+        messages.error(request, "O prontuário não pode ser atualizado neste momento.")
+        return redirect("consulta_medico_detail", consulta_id=consulta.id)
+
+    Prontuario.objects.update_or_create(
+        paciente=consulta.paciente,
+        defaults=_dados_prontuario(consulta),
+    )
+    messages.success(request, "Prontuário atualizado com sucesso.")
+    return redirect("consulta_medico_detail", consulta_id=consulta.id)
 
 
 @login_required

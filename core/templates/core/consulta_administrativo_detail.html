@@ -18,7 +18,7 @@
 {% endblock %}
 
 {% block content %}
-  <section class="mx-auto max-w-7xl px-5 py-8 lg:px-8 lg:py-10">
+  <section class="mx-auto max-w-7xl px-5 py-8 lg:px-8 lg:py-10" x-data="{ modalVisualizarProntuario: false }">
     <div class="border-b border-slate-200 pb-7">
       <div>
         <p class="text-sm font-bold uppercase tracking-[0.18em] text-primary-700">Consulta</p>
@@ -39,6 +39,7 @@
             <div><dt class="text-slate-500">Data de nascimento</dt><dd class="mt-1 font-semibold text-slate-800">{{ consulta.paciente.data_nascimento|date:"d/m/Y" }}</dd></div>
             <div><dt class="text-slate-500">Especialidade da consulta</dt><dd class="mt-1 font-semibold text-slate-800">{{ consulta.medico.especialidade.nome }}</dd></div>
           </dl>
+          {% if prontuario %}<button type="button" @click="modalVisualizarProntuario = true" class="mt-6 inline-flex rounded-lg border border-slate-300 px-3 py-2 text-sm font-bold text-slate-700 transition hover:bg-slate-50">Ver prontuário</button>{% endif %}
         </aside>
 
         <section class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm" x-data="{ aberto: {% if reagendamento_form.errors %}true{% else %}false{% endif %} }">
@@ -187,5 +188,6 @@
         </section>
       </div>
     </div>
+    {% include "core/partials/prontuario_visualizacao_modal.html" %}
   </section>
 {% endblock %}
