@@ -4,6 +4,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.core.exceptions import PermissionDenied
 from django.db import IntegrityError, transaction
+from django.db.models.deletion import ProtectedError
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
@@ -12,6 +13,8 @@ from django.views.decorators.http import require_GET, require_POST
 from .forms import (
     AgendamentoConsultaForm,
     AtendimentoForm,
+    ConsultaAdministrativaForm,
+    ConsultaStatusForm,
     ReceitaForm,
     ReceitaMedicamentoFormSet,
     SolicitacaoExameForm,
@@ -86,7 +89,15 @@ def horarios_disponiveis_view(request):
         return JsonResponse({"horarios": []}, status=400)
 
     medico = get_object_or_404(Medico.objects.filter(ativo=True), pk=medico_id)
-    horarios = horarios_disponiveis(medico, data_consulta)
+    consulta_excluida_id = None
+    consulta_id = request.GET.get("consulta")
+    if request.user.is_authenticated and request.user.is_superuser and consulta_id:
+        consulta_excluida_id = Consulta.objects.filter(
+            pk=consulta_id,
+            medico=medico,
+        ).values_list("pk", flat=True).first()
+
+    horarios = horarios_disponiveis(medico, data_consulta, consulta_excluida_id)
 
     return JsonResponse(
         {"horarios": [horario.strftime("%H:%M") for horario in horarios]}
@@ -134,6 +145,20 @@ def _contexto_consulta_medico(
         ).order_by("-solicitado_em"),
         "receitas": consulta.receitas.prefetch_related("itens__medicamento"),
     }
+
+
+def _consulta_do_superadmin(consulta_id):
+    return get_object_or_404(
+        Consulta.objects.select_related(
+            "paciente",
+            "medico__especialidade",
+            "atendimento",
+        ).prefetch_related(
+            "solicitacoes_exames__exame",
+            "receitas__itens__medicamento",
+        ),
+        pk=consulta_id,
+    )
 
 
 @login_required
@@ -208,6 +233,88 @@ def medico_dashboard(request):
             "pendentes": consultas.filter(status=Consulta.Status.PENDENTE).count(),
         },
     )
+
+
+@login_required
+def consulta_administrativo_detail(request, consulta_id):
+    if not request.user.is_superuser:
+        raise PermissionDenied("Seu usuário não possui acesso ao painel administrativo.")
+
+    consulta = _consulta_do_superadmin(consulta_id)
+
+    if request.method == "POST":
+        acao = request.POST.get("acao")
+        if acao == "status":
+            status_form = ConsultaStatusForm(request.POST, instance=consulta)
+            reagendamento_form = ConsultaAdministrativaForm(instance=consulta)
+            if status_form.is_valid():
+                try:
+                    status_form.save()
+                except IntegrityError:
+                    status_form.add_error(
+                        "status",
+                        "Este horário acabou de ser reservado por outra consulta.",
+                    )
+                else:
+                    messages.success(request, "Status da consulta atualizado com sucesso.")
+                    return redirect("consulta_administrativo_detail", consulta_id=consulta.id)
+        else:
+            status_form = ConsultaStatusForm(instance=consulta)
+            reagendamento_form = ConsultaAdministrativaForm(request.POST, instance=consulta)
+        if acao == "reagendar" and reagendamento_form.is_valid():
+            consulta_anterior = consulta.data_horario
+            try:
+                consulta = reagendamento_form.save()
+            except IntegrityError:
+                reagendamento_form.add_error(
+                    "horario",
+                    "Este horário acabou de ser reservado. Escolha outro horário.",
+                )
+            else:
+                if consulta.data_horario != consulta_anterior:
+                    messages.success(request, "Consulta reagendada com sucesso.")
+                else:
+                    messages.info(request, "A consulta já está nesse horário.")
+                return redirect("consulta_administrativo_detail", consulta_id=consulta.id)
+    else:
+        status_form = ConsultaStatusForm(instance=consulta)
+        reagendamento_form = ConsultaAdministrativaForm(instance=consulta)
+
+    return render(
+        request,
+        "core/consulta_administrativo_detail.html",
+        {
+            "consulta": consulta,
+            "atendimento": _obter_atendimento(consulta),
+            "status_form": status_form,
+            "reagendamento_form": reagendamento_form,
+        },
+    )
+
+
+@login_required
+@require_POST
+def excluir_consulta(request, consulta_id):
+    if not request.user.is_superuser:
+        raise PermissionDenied("Seu usuário não possui acesso ao painel administrativo.")
+
+    consulta = get_object_or_404(
+        Consulta.objects.select_related("paciente", "medico__especialidade"),
+        pk=consulta_id,
+        status=Consulta.Status.CANCELADA,
+    )
+
+    try:
+        consulta.delete()
+    except ProtectedError:
+        messages.error(
+            request,
+            "Esta consulta possui registros clínicos ou financeiros vinculados e não pode ser excluída.",
+        )
+        return redirect("consulta_administrativo_detail", consulta_id=consulta.id)
+
+    messages.success(request, "Consulta cancelada excluída com sucesso.")
+    return redirect("dashboard")
 
 
 @login_required

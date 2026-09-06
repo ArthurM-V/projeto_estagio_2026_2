@@ -15,7 +15,7 @@ from .models import (
     ReceitaMedicamento,
     SolicitacaoExame,
 )
-from .scheduling import horarios_disponiveis
+from .scheduling import horarios_da_clinica, horarios_disponiveis
 
 
 class AgendamentoConsultaForm(forms.Form):
@@ -131,6 +131,138 @@ class AgendamentoConsultaForm(forms.Form):
                 )
 
         return cleaned_data
+
+
+class ConsultaAdministrativaForm(forms.ModelForm):
+    data = forms.DateField(
+        label="Nova data",
+        widget=forms.DateInput(attrs={"type": "date"}),
+    )
+    horario = forms.ChoiceField(
+        label="Novo horário",
+        choices=(("", "Selecione uma data"),),
+        widget=forms.Select(
+            attrs={
+                "class": "w-full rounded-xl border border-slate-300 bg-white px-3.5 py-3 text-sm outline-none transition focus:border-primary-500 focus:ring-4 focus:ring-primary-100",
+            }
+        ),
+    )
+
+    class Meta:
+        model = Consulta
+        fields = ()
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if self.instance and self.instance.pk:
+            data_horario = timezone.localtime(self.instance.data_horario)
+            self.initial.setdefault("data", data_horario.date())
+            self.initial.setdefault("horario", data_horario.strftime("%H:%M"))
+
+        data_texto = self.data.get("data") if self.is_bound else self.initial.get("data")
+        if isinstance(data_texto, date):
+            data_consulta = data_texto
+        else:
+            try:
+                data_consulta = date.fromisoformat(data_texto)
+            except (TypeError, ValueError):
+                return
+
+        horarios = horarios_disponiveis(
+            self.instance.medico,
+            data_consulta,
+            consulta_excluida_id=self.instance.pk,
+        )
+        horario_atual = timezone.localtime(self.instance.data_horario)
+        horario_atual_sem_fuso = horario_atual.time().replace(tzinfo=None)
+        if (
+            data_consulta == horario_atual.date()
+            and horario_atual_sem_fuso in horarios_da_clinica(data_consulta)
+            and horario_atual_sem_fuso not in horarios
+        ):
+            horarios.append(horario_atual_sem_fuso)
+            horarios.sort()
+        self.fields["horario"].choices = [("", "Selecione um horário")] + [
+            (horario.strftime("%H:%M"), horario.strftime("%H:%M"))
+            for horario in horarios
+        ]
+
+    def clean(self):
+        cleaned_data = super().clean()
+        data_consulta = cleaned_data.get("data")
+        horario_texto = cleaned_data.get("horario")
+
+        if not data_consulta or not horario_texto:
+            return cleaned_data
+
+        try:
+            horario = datetime.strptime(horario_texto, "%H:%M").time()
+        except ValueError:
+            self.add_error("horario", "Selecione um horário válido.")
+            return cleaned_data
+
+        if horario not in horarios_da_clinica(data_consulta):
+            self.add_error("horario", "Este horário não faz parte da agenda da clínica.")
+            return cleaned_data
+
+        data_horario = timezone.make_aware(
+            datetime.combine(data_consulta, horario),
+            timezone.get_current_timezone(),
+        )
+        horario_foi_alterado = data_horario != self.instance.data_horario
+
+        if horario_foi_alterado and data_horario <= timezone.now():
+            self.add_error("data", "Escolha uma data e horário futuros para reagendar.")
+
+        if self.instance.status in (Consulta.Status.PENDENTE, Consulta.Status.CONFIRMADA):
+            existe_conflito = Consulta.objects.filter(
+                medico=self.instance.medico,
+                data_horario=data_horario,
+                status__in=(Consulta.Status.PENDENTE, Consulta.Status.CONFIRMADA),
+            ).exclude(pk=self.instance.pk).exists()
+            if existe_conflito:
+                self.add_error(
+                    "horario",
+                    "Este médico já possui uma consulta ativa neste horário.",
+                )
+
+        cleaned_data["data_horario"] = data_horario
+        return cleaned_data
+
+    def save(self, commit=True):
+        consulta = super().save(commit=False)
+        consulta.data_horario = self.cleaned_data["data_horario"]
+        if commit:
+            consulta.save()
+        return consulta
+
+
+class ConsultaStatusForm(forms.ModelForm):
+    class Meta:
+        model = Consulta
+        fields = ("status",)
+        labels = {"status": "Status da consulta"}
+        widgets = {
+            "status": forms.Select(
+                attrs={
+                    "class": "w-full rounded-xl border border-slate-300 bg-white px-3.5 py-3 text-sm outline-none transition focus:border-primary-500 focus:ring-4 focus:ring-primary-100",
+                }
+            )
+        }
+
+    def clean_status(self):
+        status = self.cleaned_data["status"]
+        if status in (Consulta.Status.PENDENTE, Consulta.Status.CONFIRMADA):
+            existe_conflito = Consulta.objects.filter(
+                medico=self.instance.medico,
+                data_horario=self.instance.data_horario,
+                status__in=(Consulta.Status.PENDENTE, Consulta.Status.CONFIRMADA),
+            ).exclude(pk=self.instance.pk).exists()
+            if existe_conflito:
+                raise forms.ValidationError(
+                    "Há outra consulta ativa para este médico neste horário."
+                )
+        return status
 
 
 class AtendimentoForm(forms.ModelForm):

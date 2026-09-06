@@ -34,7 +34,7 @@ def horarios_da_clinica(data):
     return ()
 
 
-def horarios_disponiveis(medico, data):
+def horarios_disponiveis(medico, data, consulta_excluida_id=None):
     """Retorna os horários livres do médico em uma data da agenda da clínica."""
     if not medico.ativo or data < timezone.localdate():
         return []
@@ -52,7 +52,11 @@ def horarios_disponiveis(medico, data):
         medico=medico,
         data_horario__range=(inicio, fim),
         status__in=(Consulta.Status.PENDENTE, Consulta.Status.CONFIRMADA),
-    ).values_list("data_horario", flat=True)
+    )
+    if consulta_excluida_id:
+        ocupados = ocupados.exclude(pk=consulta_excluida_id)
+
+    ocupados = ocupados.values_list("data_horario", flat=True)
     horarios_ocupados = {
         data_horario.astimezone(fuso_horario).time().replace(tzinfo=None)
         for data_horario in ocupados

@@ -308,3 +308,169 @@ class AcessoAosPaineisTests(TestCase):
 
         self.assertEqual(resposta.status_code, 404)
         self.assertFalse(SolicitacaoExame.objects.exists())
+
+    def test_superadmin_visualiza_detalhes_clinicos_da_consulta(self):
+        consulta = Consulta.objects.get(medico=self.medico)
+        Atendimento.objects.create(
+            consulta=consulta,
+            sintomas="Dor de cabeça há dois dias.",
+            diagnostico="Cefaleia tensional.",
+        )
+        SolicitacaoExame.objects.create(consulta=consulta, exame=self.exame)
+        receita = Receita.objects.create(consulta=consulta)
+        receita.itens.create(
+            medicamento=self.medicamento,
+            dosagem="500 mg",
+            frequencia="A cada 8 horas",
+            duracao="3 dias",
+        )
+        self.client.force_login(self.superadmin)
+
+        resposta = self.client.get(
+            reverse("consulta_administrativo_detail", args=[consulta.id])
+        )
+
+        self.assertEqual(resposta.status_code, 200)
+        self.assertTemplateUsed(resposta, "core/consulta_administrativo_detail.html")
+        self.assertContains(resposta, "Dor de cabeça há dois dias.")
+        self.assertContains(resposta, self.exame.nome)
+        self.assertContains(resposta, self.medicamento.nome)
+
+    def test_medico_nao_acessa_detalhe_administrativo(self):
+        consulta = Consulta.objects.get(medico=self.medico)
+        self.client.force_login(self.medico.usuario)
+
+        resposta = self.client.get(
+            reverse("consulta_administrativo_detail", args=[consulta.id])
+        )
+
+        self.assertEqual(resposta.status_code, 403)
+
+    def test_superadmin_atualiza_status_da_consulta(self):
+        consulta = Consulta.objects.get(medico=self.medico)
+        data_consulta = timezone.localdate() + timedelta(days=2)
+        while data_consulta.weekday() == 6:
+            data_consulta += timedelta(days=1)
+        consulta.data_horario = timezone.make_aware(
+            datetime.combine(data_consulta, time(10)),
+            timezone.get_current_timezone(),
+        )
+        consulta.save(update_fields=("data_horario",))
+        self.client.force_login(self.superadmin)
+
+        resposta = self.client.post(
+            reverse("consulta_administrativo_detail", args=[consulta.id]),
+            {
+                "acao": "status",
+                "status": Consulta.Status.CONFIRMADA,
+            },
+        )
+
+        self.assertRedirects(
+            resposta,
+            reverse("consulta_administrativo_detail", args=[consulta.id]),
+        )
+        consulta.refresh_from_db()
+        self.assertEqual(consulta.status, Consulta.Status.CONFIRMADA)
+
+    def test_superadmin_reagenda_consulta_para_horario_disponivel(self):
+        consulta = Consulta.objects.get(medico=self.medico)
+        data_consulta = timezone.localdate() + timedelta(days=2)
+        while data_consulta.weekday() == 6:
+            data_consulta += timedelta(days=1)
+        consulta.data_horario = timezone.make_aware(
+            datetime.combine(data_consulta, time(10)),
+            timezone.get_current_timezone(),
+        )
+        consulta.save(update_fields=("data_horario",))
+        self.client.force_login(self.superadmin)
+
+        resposta = self.client.post(
+            reverse("consulta_administrativo_detail", args=[consulta.id]),
+            {
+                "acao": "reagendar",
+                "data": data_consulta.isoformat(),
+                "horario": "11:00",
+            },
+        )
+
+        self.assertRedirects(
+            resposta,
+            reverse("consulta_administrativo_detail", args=[consulta.id]),
+        )
+        consulta.refresh_from_db()
+        self.assertEqual(
+            timezone.localtime(consulta.data_horario).time().replace(tzinfo=None),
+            time(11),
+        )
+
+    def test_superadmin_nao_reagenda_para_horario_ocupado(self):
+        consulta = Consulta.objects.get(medico=self.medico)
+        data_consulta = timezone.localdate() + timedelta(days=2)
+        while data_consulta.weekday() == 6:
+            data_consulta += timedelta(days=1)
+        consulta.data_horario = timezone.make_aware(
+            datetime.combine(data_consulta, time(10)),
+            timezone.get_current_timezone(),
+        )
+        consulta.save(update_fields=("data_horario",))
+        paciente = Paciente.objects.create(
+            nome="Paciente com horário reservado",
+            cpf="99988877766",
+            email="horario.reservado@smarthealth.test",
+            telefone="(11) 96666-0000",
+            data_nascimento="1988-03-10",
+        )
+        Consulta.objects.create(
+            paciente=paciente,
+            medico=self.medico,
+            data_horario=timezone.make_aware(
+                datetime.combine(data_consulta, time(11)),
+                timezone.get_current_timezone(),
+            ),
+        )
+        self.client.force_login(self.superadmin)
+
+        resposta = self.client.post(
+            reverse("consulta_administrativo_detail", args=[consulta.id]),
+            {
+                "acao": "reagendar",
+                "data": data_consulta.isoformat(),
+                "horario": "11:00",
+            },
+        )
+
+        self.assertEqual(resposta.status_code, 200)
+        self.assertIn("horario", resposta.context["reagendamento_form"].errors)
+        consulta.refresh_from_db()
+        self.assertEqual(
+            timezone.localtime(consulta.data_horario).time().replace(tzinfo=None),
+            time(10),
+        )
+        self.assertEqual(consulta.status, Consulta.Status.PENDENTE)
+
+    def test_superadmin_exclui_consulta_cancelada_apos_confirmacao(self):
+        consulta = Consulta.objects.get(medico=self.medico)
+        consulta.status = Consulta.Status.CANCELADA
+        consulta.save(update_fields=("status",))
+        self.client.force_login(self.superadmin)
+
+        resposta = self.client.get(
+            reverse("consulta_administrativo_detail", args=[consulta.id])
+        )
+
+        self.assertEqual(resposta.status_code, 200)
+        self.assertContains(resposta, "Excluir consulta cancelada")
+
+        resposta = self.client.post(reverse("excluir_consulta", args=[consulta.id]))
+
+        self.assertRedirects(resposta, reverse("dashboard"))
+        self.assertFalse(Consulta.objects.filter(pk=consulta.id).exists())
+
+    def test_superadmin_nao_exclui_consulta_nao_cancelada(self):
+        consulta = Consulta.objects.get(medico=self.medico)
+        self.client.force_login(self.superadmin)
+
+        resposta = self.client.post(reverse("excluir_consulta", args=[consulta.id]))
+
+        self.assertEqual(resposta.status_code, 404)

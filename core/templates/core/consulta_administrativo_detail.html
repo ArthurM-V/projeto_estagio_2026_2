@@ -1,0 +1,191 @@
+{% extends "core/base.html" %}
+
+{% block title %}Consulta de {{ consulta.paciente.nome }} | SmartHealth{% endblock %}
+
+{% block header %}
+  <header class="border-b border-slate-200 bg-white">
+    <nav class="mx-auto flex max-w-7xl items-center justify-between gap-4 px-5 py-4 lg:px-8" aria-label="Navegação administrativa">
+      <a href="{% url 'dashboard' %}" class="inline-flex items-center gap-2 text-sm font-semibold text-primary-700 transition hover:text-primary-800">
+        <span aria-hidden="true">←</span>
+        Voltar para o painel
+      </a>
+      <form method="post" action="{% url 'logout' %}">
+        {% csrf_token %}
+        <button type="submit" class="rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700 transition hover:border-primary-600 hover:text-primary-700">Sair</button>
+      </form>
+    </nav>
+  </header>
+{% endblock %}
+
+{% block content %}
+  <section class="mx-auto max-w-7xl px-5 py-8 lg:px-8 lg:py-10">
+    <div class="border-b border-slate-200 pb-7">
+      <div>
+        <p class="text-sm font-bold uppercase tracking-[0.18em] text-primary-700">Consulta</p>
+        <h1 class="mt-2 text-3xl font-bold tracking-tight text-slate-900">{{ consulta.paciente.nome }}</h1>
+        <p class="mt-2 text-sm text-slate-600">{{ consulta.data_horario|date:"d/m/Y" }} às {{ consulta.data_horario|time:"H:i" }} · Dr(a). {{ consulta.medico.nome }}</p>
+      </div>
+    </div>
+
+    <div class="mt-8 grid gap-6 lg:grid-cols-[.85fr_1.15fr]">
+      <div class="space-y-6">
+        <aside class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+          <p class="text-sm font-bold uppercase tracking-[0.18em] text-primary-700">Paciente</p>
+          <h2 class="mt-2 text-xl font-bold text-slate-900">Dados de cadastro</h2>
+          <dl class="mt-6 space-y-4 text-sm">
+            <div><dt class="text-slate-500">CPF</dt><dd class="mt-1 font-semibold text-slate-800">{{ consulta.paciente.cpf }}</dd></div>
+            <div><dt class="text-slate-500">E-mail</dt><dd class="mt-1 break-words font-semibold text-slate-800">{{ consulta.paciente.email }}</dd></div>
+            <div><dt class="text-slate-500">Telefone</dt><dd class="mt-1 font-semibold text-slate-800">{{ consulta.paciente.telefone }}</dd></div>
+            <div><dt class="text-slate-500">Data de nascimento</dt><dd class="mt-1 font-semibold text-slate-800">{{ consulta.paciente.data_nascimento|date:"d/m/Y" }}</dd></div>
+            <div><dt class="text-slate-500">Especialidade da consulta</dt><dd class="mt-1 font-semibold text-slate-800">{{ consulta.medico.especialidade.nome }}</dd></div>
+          </dl>
+        </aside>
+
+        <section class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm" x-data="{ aberto: {% if reagendamento_form.errors %}true{% else %}false{% endif %} }">
+          <button type="button" @click="aberto = !aberto" :aria-expanded="aberto.toString()" class="flex w-full items-center justify-between gap-4 text-left">
+            <span>
+              <span class="block text-sm font-bold uppercase tracking-[0.18em] text-primary-700">Agenda</span>
+              <span class="mt-2 block text-xl font-bold text-slate-900">Reagendar consulta</span>
+              <span class="mt-1 block text-sm leading-6 text-slate-600">Consulte os horários disponíveis para este médico.</span>
+            </span>
+            <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary-50 text-primary-700 transition" :class="{ 'rotate-180': aberto }" aria-hidden="true">⌄</span>
+          </button>
+          <div x-show="aberto" x-cloak x-transition class="mt-6 border-t border-slate-200 pt-6">
+          <form
+            method="post"
+            x-data="{
+              data: '{{ reagendamento_form.data.value|default_if_none:'' }}',
+              horario: '{{ reagendamento_form.horario.value|default_if_none:'' }}',
+              horarios: [{% for valor, rotulo in reagendamento_form.horario.field.choices %}{ valor: '{{ valor }}', rotulo: '{{ rotulo }}' }{% if not forloop.last %}, {% endif %}{% endfor %}],
+              carregando: false,
+              async atualizarHorarios() {
+                this.horario = '';
+                if (!this.data) { this.horarios = [{ valor: '', rotulo: 'Selecione uma data' }]; return; }
+                this.carregando = true;
+                const parametros = new URLSearchParams({ medico: '{{ consulta.medico.id }}', data: this.data, consulta: '{{ consulta.id }}' });
+                try {
+                  const resposta = await fetch('{% url 'horarios_disponiveis' %}?' + parametros.toString());
+                  const conteudo = await resposta.json();
+                  this.horarios = [{ valor: '', rotulo: 'Selecione um horário' }, ...conteudo.horarios.map((item) => ({ valor: item, rotulo: item }))];
+                } finally { this.carregando = false; }
+              }
+            }"
+          >
+            {% csrf_token %}
+            <input type="hidden" name="acao" value="reagendar" />
+            {% if reagendamento_form.non_field_errors %}<div class="rounded-xl bg-red-50 px-4 py-3 text-sm font-medium text-red-700">{{ reagendamento_form.non_field_errors }}</div>{% endif %}
+            <div class="space-y-4">
+              <div>
+                <label for="{{ reagendamento_form.data.id_for_label }}" class="mb-2 block text-sm font-semibold text-slate-700">{{ reagendamento_form.data.label }}</label>
+                <input type="date" name="{{ reagendamento_form.data.html_name }}" id="{{ reagendamento_form.data.id_for_label }}" value="{{ reagendamento_form.data.value|default_if_none:'' }}" x-model="data" @change="atualizarHorarios" class="w-full rounded-xl border border-slate-300 bg-white px-3.5 py-3 text-sm outline-none transition focus:border-primary-500 focus:ring-4 focus:ring-primary-100" />
+                {% for erro in reagendamento_form.data.errors %}<p class="mt-1 text-sm font-medium text-red-600">{{ erro }}</p>{% endfor %}
+              </div>
+              <div>
+                <label for="{{ reagendamento_form.horario.id_for_label }}" class="mb-2 block text-sm font-semibold text-slate-700">{{ reagendamento_form.horario.label }}</label>
+                <select name="{{ reagendamento_form.horario.html_name }}" id="{{ reagendamento_form.horario.id_for_label }}" x-model="horario" :disabled="carregando" class="w-full rounded-xl border border-slate-300 bg-white px-3.5 py-3 text-sm outline-none transition focus:border-primary-500 focus:ring-4 focus:ring-primary-100"><template x-for="item in horarios" :key="item.valor"><option :value="item.valor" x-text="item.rotulo"></option></template></select>
+                <p x-show="carregando" x-cloak class="mt-1 text-sm text-slate-500">Carregando horários disponíveis…</p>
+                {% for erro in reagendamento_form.horario.errors %}<p class="mt-1 text-sm font-medium text-red-600">{{ erro }}</p>{% endfor %}
+              </div>
+            </div>
+            <button type="submit" class="mt-6 inline-flex w-full justify-center rounded-xl bg-primary-600 px-4 py-3 text-sm font-bold text-white transition hover:bg-primary-700">Salvar reagendamento</button>
+          </form>
+          </div>
+        </section>
+      </div>
+
+      <div class="space-y-6">
+        <section class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm" x-data="{ modalExcluir: false }">
+          <p class="text-sm font-bold uppercase tracking-[0.18em] text-primary-700">Status</p>
+          <h2 class="mt-2 text-xl font-bold text-slate-900">Situação da consulta</h2>
+          {% if consulta.status == "pendente" %}
+            <span class="mt-5 inline-flex rounded-full bg-amber-100 px-3 py-1 text-xs font-bold text-amber-800">Pendente</span>
+          {% elif consulta.status == "confirmada" %}
+            <span class="mt-5 inline-flex rounded-full bg-emerald-100 px-3 py-1 text-xs font-bold text-emerald-800">Confirmada</span>
+          {% elif consulta.status == "cancelada" %}
+            <span class="mt-5 inline-flex rounded-full bg-red-100 px-3 py-1 text-xs font-bold text-red-800">Cancelada</span>
+          {% elif consulta.status == "ausente" %}
+            <span class="mt-5 inline-flex rounded-full bg-orange-100 px-3 py-1 text-xs font-bold text-orange-800">Ausente</span>
+          {% else %}
+            <span class="mt-5 inline-flex rounded-full bg-sky-100 px-3 py-1 text-xs font-bold text-sky-800">Concluída</span>
+          {% endif %}
+          <form method="post" class="mt-5">
+            {% csrf_token %}
+            <input type="hidden" name="acao" value="status" />
+            <label for="{{ status_form.status.id_for_label }}" class="mb-2 mt-5 block text-sm font-semibold text-slate-700">{{ status_form.status.label }}</label>
+            {{ status_form.status }}
+            {% for erro in status_form.status.errors %}<p class="mt-1 text-sm font-medium text-red-600">{{ erro }}</p>{% endfor %}
+            <button type="submit" class="mt-4 inline-flex w-full justify-center rounded-xl bg-primary-600 px-4 py-3 text-sm font-bold text-white transition hover:bg-primary-700">Atualizar status</button>
+          </form>
+          {% if consulta.status == "cancelada" %}
+            <button type="button" @click="modalExcluir = true" class="mt-4 inline-flex w-full justify-center rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-bold text-red-700 transition hover:border-red-300 hover:bg-red-100">Excluir consulta cancelada</button>
+            <div x-show="modalExcluir" x-cloak x-transition:enter="transition-opacity ease-out duration-200" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100" x-transition:leave="transition-opacity ease-in duration-150" x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-5" @keydown.escape.window="modalExcluir = false">
+              <div x-show="modalExcluir" x-transition:enter="transition ease-out duration-200" x-transition:enter-start="scale-95 opacity-0" x-transition:enter-end="scale-100 opacity-100" x-transition:leave="transition ease-in duration-150" x-transition:leave-start="scale-100 opacity-100" x-transition:leave-end="scale-95 opacity-0" class="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl sm:p-8" @click.outside="modalExcluir = false" role="dialog" aria-modal="true" aria-labelledby="titulo-exclusao">
+                <span class="flex h-12 w-12 items-center justify-center rounded-full bg-red-50 text-xl text-red-700" aria-hidden="true">!</span>
+                <p class="mt-5 text-sm font-bold uppercase tracking-[0.18em] text-red-700">Excluir consulta</p>
+                <h3 id="titulo-exclusao" class="mt-2 text-2xl font-bold text-slate-900">Confirma a exclusão?</h3>
+                <p class="mt-3 text-sm leading-6 text-slate-600">A consulta cancelada de <span class="font-semibold text-slate-800">{{ consulta.paciente.nome }}</span> será removida permanentemente.</p>
+                <form method="post" action="{% url 'excluir_consulta' consulta.id %}" class="mt-8 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+                  {% csrf_token %}
+                  <button type="button" @click="modalExcluir = false" class="inline-flex justify-center rounded-xl border border-slate-300 px-4 py-3 text-sm font-bold text-slate-700 transition hover:border-primary-600 hover:text-primary-700">Manter consulta</button>
+                  <button type="submit" class="inline-flex justify-center rounded-xl bg-red-600 px-4 py-3 text-sm font-bold text-white transition hover:bg-red-700">Excluir permanentemente</button>
+                </form>
+              </div>
+            </div>
+          {% endif %}
+        </section>
+
+        <section class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+          <p class="text-sm font-bold uppercase tracking-[0.18em] text-primary-700">Atendimento clínico</p>
+          {% if atendimento %}
+            <dl class="mt-5 space-y-5 text-sm">
+              <div><dt class="font-bold text-slate-700">Sintomas</dt><dd class="mt-1 whitespace-pre-line leading-6 text-slate-600">{{ atendimento.sintomas }}</dd></div>
+              {% if atendimento.diagnostico %}<div><dt class="font-bold text-slate-700">Diagnóstico</dt><dd class="mt-1 whitespace-pre-line leading-6 text-slate-600">{{ atendimento.diagnostico }}</dd></div>{% endif %}
+              {% if atendimento.conduta %}<div><dt class="font-bold text-slate-700">Conduta</dt><dd class="mt-1 whitespace-pre-line leading-6 text-slate-600">{{ atendimento.conduta }}</dd></div>{% endif %}
+              {% if atendimento.observacoes %}<div><dt class="font-bold text-slate-700">Observações clínicas</dt><dd class="mt-1 whitespace-pre-line leading-6 text-slate-600">{{ atendimento.observacoes }}</dd></div>{% endif %}
+            </dl>
+          {% else %}
+            <p class="mt-4 text-sm text-slate-600">Nenhum atendimento clínico foi registrado.</p>
+          {% endif %}
+        </section>
+
+        <section class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+          <p class="text-sm font-bold uppercase tracking-[0.18em] text-primary-700">Exames</p>
+          <h2 class="mt-2 text-xl font-bold text-slate-900">Solicitações registradas</h2>
+          {% if consulta.solicitacoes_exames.all %}
+            <div class="mt-5 space-y-3">
+              {% for solicitacao in consulta.solicitacoes_exames.all %}
+                <article class="rounded-xl bg-slate-50 px-4 py-3">
+                  <p class="font-semibold text-slate-800">{{ solicitacao.exame.nome }}</p>
+                  <p class="mt-1 text-sm text-slate-600">Status: {{ solicitacao.get_status_display }}</p>
+                  {% if solicitacao.observacoes %}<p class="mt-2 text-sm leading-6 text-slate-600">{{ solicitacao.observacoes }}</p>{% endif %}
+                </article>
+              {% endfor %}
+            </div>
+          {% else %}
+            <p class="mt-4 text-sm text-slate-600">Nenhum exame solicitado.</p>
+          {% endif %}
+        </section>
+
+        <section class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+          <p class="text-sm font-bold uppercase tracking-[0.18em] text-primary-700">Receitas</p>
+          <h2 class="mt-2 text-xl font-bold text-slate-900">Receitas emitidas</h2>
+          {% if consulta.receitas.all %}
+            <div class="mt-5 space-y-3">
+              {% for receita in consulta.receitas.all %}
+                <article class="rounded-xl bg-slate-50 px-4 py-3">
+                  <p class="text-xs font-bold uppercase tracking-wide text-slate-500">{{ receita.emitida_em|date:"d/m/Y" }} às {{ receita.emitida_em|time:"H:i" }}</p>
+                  <ul class="mt-3 space-y-2 text-sm text-slate-700">
+                    {% for item in receita.itens.all %}<li><span class="font-semibold text-slate-800">{{ item.medicamento.nome }}</span> — {{ item.dosagem }}, {{ item.frequencia }}, por {{ item.duracao }}.</li>{% endfor %}
+                  </ul>
+                  {% if receita.orientacoes %}<p class="mt-3 border-t border-slate-200 pt-3 text-sm leading-6 text-slate-600">{{ receita.orientacoes }}</p>{% endif %}
+                </article>
+              {% endfor %}
+            </div>
+          {% else %}
+            <p class="mt-4 text-sm text-slate-600">Nenhuma receita emitida.</p>
+          {% endif %}
+        </section>
+      </div>
+    </div>
+  </section>
+{% endblock %}

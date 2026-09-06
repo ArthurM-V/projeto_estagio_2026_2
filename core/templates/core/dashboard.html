@@ -87,6 +87,7 @@
                 <th scope="col" class="px-6 py-4">Profissional</th>
                 <th scope="col" class="px-6 py-4">Data e horário</th>
                 <th scope="col" class="px-6 py-4">Status</th>
+                <th scope="col" class="px-6 py-4">Detalhes</th>
               </tr>
             </thead>
             <tbody class="divide-y divide-slate-100">
@@ -116,6 +117,9 @@
                     {% else %}
                       <span class="inline-flex rounded-full bg-sky-100 px-3 py-1 text-xs font-bold text-sky-800">Concluída</span>
                     {% endif %}
+                  </td>
+                  <td class="px-6 py-4">
+                    <a href="{% url 'consulta_administrativo_detail' consulta.id %}" class="inline-flex rounded-lg px-3 py-2 text-sm font-bold text-primary-700 transition hover:bg-primary-50 hover:text-primary-800">Ver detalhes</a>
                   </td>
                 </tr>
               {% endfor %}
@@ -147,6 +151,7 @@
                 <div><dt class="text-slate-500">Profissional</dt><dd class="mt-1 font-semibold text-slate-800">Dr(a). {{ consulta.medico.nome }}</dd><dd class="text-slate-500">{{ consulta.medico.especialidade.nome }}</dd></div>
                 <div><dt class="text-slate-500">Data e horário</dt><dd class="mt-1 font-semibold text-slate-800">{{ consulta.data_horario|date:"d/m/Y" }}</dd><dd class="text-slate-500">{{ consulta.data_horario|time:"H:i" }}</dd></div>
               </dl>
+              <a href="{% url 'consulta_administrativo_detail' consulta.id %}" class="mt-5 inline-flex rounded-lg px-3 py-2 text-sm font-bold text-primary-700 transition hover:bg-primary-50 hover:text-primary-800">Ver detalhes</a>
             </article>
           {% endfor %}
         </div>

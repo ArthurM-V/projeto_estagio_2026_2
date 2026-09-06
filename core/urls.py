@@ -16,6 +16,16 @@ urlpatterns = [
         name="login",
     ),
     path("painel/", views.dashboard, name="dashboard"),
+    path(
+        "painel/consultas/<int:consulta_id>/",
+        views.consulta_administrativo_detail,
+        name="consulta_administrativo_detail",
+    ),
+    path(
+        "painel/consultas/<int:consulta_id>/excluir/",
+        views.excluir_consulta,
+        name="excluir_consulta",
+    ),
     path("painel/medico/", views.medico_dashboard, name="medico_dashboard"),
     path(
         "painel/medico/consultas/<int:consulta_id>/",
