@@ -1,0 +1,16 @@
+{% if consultas %}
+  <div class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+    <div class="divide-y divide-slate-100">
+      {% for consulta in consultas %}
+        <article class="p-5 sm:p-6">
+          <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between"><div><p class="text-lg font-bold text-slate-900">{{ consulta.paciente.nome }}</p><p class="mt-1 text-sm text-slate-600">{{ consulta.data_horario|date:"d/m/Y" }} às {{ consulta.data_horario|time:"H:i" }}</p></div>{% if consulta.status == "pendente" %}<span class="w-fit rounded-full bg-amber-100 px-3 py-1 text-xs font-bold text-amber-800">Pendente</span>{% elif consulta.status == "confirmada" %}<span class="w-fit rounded-full bg-emerald-100 px-3 py-1 text-xs font-bold text-emerald-800">Confirmada</span>{% elif consulta.status == "cancelada" %}<span class="w-fit rounded-full bg-red-100 px-3 py-1 text-xs font-bold text-red-800">Cancelada</span>{% elif consulta.status == "ausente" %}<span class="w-fit rounded-full bg-orange-100 px-3 py-1 text-xs font-bold text-orange-800">Ausente</span>{% else %}<span class="w-fit rounded-full bg-sky-100 px-3 py-1 text-xs font-bold text-sky-800">Concluída</span>{% endif %}</div>
+          {% if consulta.observacoes %}<div class="mt-4 rounded-xl bg-slate-50 px-4 py-3"><p class="text-xs font-bold uppercase tracking-wide text-slate-500">Observações do agendamento</p><p class="mt-1 text-sm leading-6 text-slate-700">{{ consulta.observacoes }}</p></div>{% endif %}
+          <a href="{% url 'consulta_medico_detail' consulta.id %}" class="mt-4 inline-flex items-center text-sm font-bold text-primary-700 transition hover:text-primary-800">{% if consulta.atendimento %}Ver e editar atendimento{% else %}Registrar atendimento{% endif %}<span class="ml-1" aria-hidden="true">→</span></a>
+        </article>
+      {% endfor %}
+    </div>
+  </div>
+  {% if page_obj.paginator.num_pages > 1 %}<nav class="mt-6 flex flex-wrap items-center justify-center gap-2" aria-label="Paginação das consultas">{% if page_obj.has_previous %}<button type="button" data-pagina="{{ page_obj.previous_page_number }}" class="rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700">Anterior</button>{% endif %}<span class="px-3 py-2 text-sm text-slate-600">Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}</span>{% if page_obj.has_next %}<button type="button" data-pagina="{{ page_obj.next_page_number }}" class="rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700">Próxima</button>{% endif %}</nav>{% endif %}
+{% else %}
+  <div class="rounded-2xl border border-dashed border-slate-300 bg-white px-6 py-14 text-center"><h3 class="text-xl font-bold text-slate-900">Nenhuma consulta encontrada</h3><p class="mx-auto mt-2 max-w-md text-sm leading-6 text-slate-600">Ajuste a busca ou os filtros para encontrar uma consulta.</p></div>
+{% endif %}

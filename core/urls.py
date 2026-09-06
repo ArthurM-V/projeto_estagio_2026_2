@@ -36,6 +36,11 @@ urlpatterns = [
     ),
     path("painel/medico/", views.medico_dashboard, name="medico_dashboard"),
     path(
+        "painel/medico/consultas/lista/",
+        views.consultas_medico_filtradas,
+        name="consultas_medico_filtradas",
+    ),
+    path(
         "painel/medico/consultas/<int:consulta_id>/",
         views.consulta_medico_detail,
         name="consulta_medico_detail",

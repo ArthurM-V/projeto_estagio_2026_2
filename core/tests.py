@@ -13,6 +13,8 @@ from .models import (
     Medicamento,
     Medico,
     Paciente,
+    Prontuario,
+    RedefinicaoSenhaMedico,
     Receita,
     SolicitacaoExame,
 )
@@ -501,3 +503,210 @@ class AcessoAosPaineisTests(TestCase):
         resposta = self.client.post(reverse("excluir_consulta", args=[consulta.id]))
 
         self.assertEqual(resposta.status_code, 404)
+
+    def test_medico_filtra_consultas_proprias_e_navega_paginacao(self):
+        for indice in range(11):
+            paciente = Paciente.objects.create(
+                nome=f"Paciente filtro {indice:02d}",
+                cpf=f"70000000{indice:03d}",
+                email=f"filtro{indice}@smarthealth.test",
+                telefone="11988880000",
+                data_nascimento="1990-01-01",
+            )
+            Consulta.objects.create(
+                paciente=paciente,
+                medico=self.medico,
+                data_horario=timezone.make_aware(
+                    datetime.combine(
+                        timezone.localdate() + timedelta(days=indice + 2),
+                        time(9),
+                    ),
+                    timezone.get_current_timezone(),
+                ),
+                status=Consulta.Status.CONFIRMADA,
+            )
+        self.client.force_login(self.medico.usuario)
+
+        resposta = self.client.get(
+            reverse("consultas_medico_filtradas"),
+            {"busca": "Paciente filtro", "status": Consulta.Status.CONFIRMADA},
+        )
+
+        self.assertEqual(resposta.status_code, 200)
+        self.assertTemplateUsed(resposta, "core/partials/consultas_medico_lista.html")
+        self.assertEqual(resposta.context["page_obj"].paginator.count, 11)
+        self.assertContains(resposta, "Paciente filtro 00")
+        self.assertNotContains(resposta, "Paciente de outro médico")
+
+        resposta = self.client.get(
+            reverse("consultas_medico_filtradas"),
+            {
+                "busca": "Paciente filtro",
+                "status": Consulta.Status.CONFIRMADA,
+                "page": 2,
+            },
+        )
+
+        self.assertEqual(resposta.context["page_obj"].number, 2)
+        self.assertContains(resposta, "Paciente filtro 10")
+
+        resposta = self.client.get(
+            reverse("consultas_medico_filtradas"),
+            {
+                "busca": "Paciente filtro",
+                "data": (timezone.localdate() + timedelta(days=12)).isoformat(),
+            },
+        )
+
+        self.assertContains(resposta, "Paciente filtro 10")
+        self.assertNotContains(resposta, "Paciente filtro 09")
+
+    def test_superadmin_nao_acessa_listagem_parcial_do_painel_medico(self):
+        self.client.force_login(self.superadmin)
+
+        resposta = self.client.get(reverse("consultas_medico_filtradas"))
+
+        self.assertEqual(resposta.status_code, 403)
+
+    def test_medico_so_conclui_consulta_confirmada_com_atendimento(self):
+        consulta = Consulta.objects.get(medico=self.medico)
+        consulta.status = Consulta.Status.CONFIRMADA
+        consulta.save(update_fields=("status",))
+        self.client.force_login(self.medico.usuario)
+
+        resposta = self.client.post(
+            reverse("concluir_consulta_medico", args=[consulta.id])
+        )
+
+        self.assertRedirects(
+            resposta, reverse("consulta_medico_detail", args=[consulta.id])
+        )
+        consulta.refresh_from_db()
+        self.assertEqual(consulta.status, Consulta.Status.CONFIRMADA)
+
+        Atendimento.objects.create(consulta=consulta, sintomas="Dor persistente.")
+        resposta = self.client.post(
+            reverse("concluir_consulta_medico", args=[consulta.id])
+        )
+
+        self.assertRedirects(
+            resposta, reverse("consulta_medico_detail", args=[consulta.id])
+        )
+        consulta.refresh_from_db()
+        self.assertEqual(consulta.status, Consulta.Status.CONCLUIDA)
+
+    def test_prontuario_reune_dados_clinicos_e_nao_muda_apos_conclusao(self):
+        consulta = Consulta.objects.get(medico=self.medico)
+        atendimento = Atendimento.objects.create(
+            consulta=consulta,
+            sexo=Atendimento.Sexo.FEMININO,
+            sintomas="Dor de cabeça há dois dias.",
+            diagnostico="Cefaleia tensional.",
+            conduta="Repouso e hidratação.",
+        )
+        SolicitacaoExame.objects.create(consulta=consulta, exame=self.exame)
+        receita = Receita.objects.create(
+            consulta=consulta,
+            orientacoes="Retornar se a dor persistir.",
+        )
+        receita.itens.create(
+            medicamento=self.medicamento,
+            dosagem="500 mg",
+            frequencia="A cada 8 horas",
+            duracao="3 dias",
+        )
+        self.client.force_login(self.medico.usuario)
+
+        resposta = self.client.post(reverse("salvar_prontuario", args=[consulta.id]))
+
+        self.assertRedirects(
+            resposta, reverse("consulta_medico_detail", args=[consulta.id])
+        )
+        prontuario = Prontuario.objects.get(paciente=consulta.paciente)
+        self.assertIn("Sexo: Feminino", prontuario.anamnese)
+        self.assertIn(atendimento.sintomas, prontuario.anamnese)
+        self.assertIn(atendimento.diagnostico, prontuario.evolucao_clinica)
+        self.assertIn(self.exame.nome, prontuario.evolucao_clinica)
+        self.assertIn(self.medicamento.nome, prontuario.prescricoes)
+
+        consulta.status = Consulta.Status.CONCLUIDA
+        consulta.save(update_fields=("status",))
+        prontuario_atualizado_em = prontuario.atualizado_em
+        atendimento.conduta = "Conduta que não deve entrar após a conclusão."
+        atendimento.save()
+
+        resposta = self.client.post(reverse("salvar_prontuario", args=[consulta.id]))
+
+        self.assertRedirects(
+            resposta, reverse("consulta_medico_detail", args=[consulta.id])
+        )
+        prontuario.refresh_from_db()
+        self.assertEqual(prontuario.atualizado_em, prontuario_atualizado_em)
+        self.assertNotIn("não deve entrar", prontuario.evolucao_clinica)
+
+    def test_medico_nao_cria_prontuario_para_consulta_de_outro_medico(self):
+        consulta = Consulta.objects.get(medico=self.outro_medico)
+        self.client.force_login(self.medico.usuario)
+
+        resposta = self.client.post(reverse("salvar_prontuario", args=[consulta.id]))
+
+        self.assertEqual(resposta.status_code, 404)
+        self.assertFalse(Prontuario.objects.exists())
+
+    def test_superadmin_cadastra_medico_com_usuario_sem_privilegios(self):
+        self.client.force_login(self.superadmin)
+
+        resposta = self.client.post(
+            reverse("cadastrar_medico"),
+            {
+                "nome": "Beatriz Moura",
+                "crm": "RJ 123456",
+                "email": "beatriz@smarthealth.test",
+                "telefone": "(21) 98888-0000",
+                "especialidade": self.medico.especialidade_id,
+            },
+        )
+
+        senha = self.client.session["credenciais_medico"]["senha"]
+        self.assertRedirects(resposta, reverse("dashboard"))
+        medico = Medico.objects.get(email="beatriz@smarthealth.test")
+        self.assertIsNotNone(medico.usuario)
+        self.assertFalse(medico.usuario.is_staff)
+        self.assertFalse(medico.usuario.is_superuser)
+        self.assertEqual(len(senha), 10)
+
+    def test_superadmin_redefine_senha_automatica_com_composicao_esperada(self):
+        senha_anterior = self.medico.usuario.password
+        self.client.force_login(self.superadmin)
+
+        resposta = self.client.post(
+            reverse("redefinir_senha_medico", args=[self.medico.id]),
+            {"usuario": "admin", "senha": "senha-segura-para-teste"},
+        )
+
+        senha = self.client.session["credenciais_medico"]["senha"]
+        self.assertRedirects(resposta, reverse("dashboard"))
+        self.medico.usuario.refresh_from_db()
+        self.assertNotEqual(self.medico.usuario.password, senha_anterior)
+        self.assertEqual(len(senha), 10)
+        self.assertTrue(any(caractere.islower() for caractere in senha))
+        self.assertTrue(any(caractere.isupper() for caractere in senha))
+        self.assertTrue(any(caractere.isdigit() for caractere in senha))
+        self.assertEqual(self.medico.redefinicoes_senha.filter(foi_redefinicao=True).count(), 1)
+
+    def test_redefinicao_de_senha_respeita_intervalo_de_quinze_dias(self):
+        RedefinicaoSenhaMedico.objects.create(
+            medico=self.medico,
+            redefinida_por=self.superadmin,
+            senha_hash="hash-de-teste",
+            foi_redefinicao=True,
+        )
+        self.client.force_login(self.superadmin)
+
+        resposta = self.client.post(
+            reverse("redefinir_senha_medico", args=[self.medico.id]),
+            {"usuario": "admin", "senha": "senha-segura-para-teste"},
+        )
+
+        self.assertRedirects(resposta, reverse("dashboard"))
+        self.assertEqual(self.medico.redefinicoes_senha.count(), 1)

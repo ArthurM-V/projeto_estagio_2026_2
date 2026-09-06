@@ -512,7 +512,7 @@ def medico_dashboard(request):
 
     medico = _obter_medico_ativo(request.user)
 
-    consultas = (
+    consultas_base = (
         Consulta.objects.filter(medico=medico)
         .select_related("paciente", "atendimento")
         .order_by("data_horario")
@@ -523,12 +523,65 @@ def medico_dashboard(request):
         "core/medico_dashboard.html",
         {
             "medico": medico,
-            "consultas": consultas,
-            "consultas_hoje": consultas.filter(
+            **_contexto_consultas_medico(request, consultas_base),
+            "consultas_hoje": consultas_base.filter(
                 data_horario__date=timezone.localdate()
             ).count(),
-            "pendentes": consultas.filter(status=Consulta.Status.PENDENTE).count(),
+            "pendentes": consultas_base.filter(status=Consulta.Status.PENDENTE).count(),
         },
+    )
+
+
+def _contexto_consultas_medico(request, consultas_base):
+    busca = request.GET.get("busca", "").strip()
+    status_atual = request.GET.get("status", "")
+    data_atual = request.GET.get("data", "")
+    consultas = consultas_base
+
+    if busca:
+        consultas = consultas.filter(paciente__nome__icontains=busca)
+    status_validos = {valor for valor, _ in Consulta.Status.choices}
+    if status_atual in status_validos:
+        consultas = consultas.filter(status=status_atual)
+    else:
+        status_atual = ""
+    try:
+        data_consulta = date.fromisoformat(data_atual) if data_atual else None
+    except ValueError:
+        data_consulta = None
+        data_atual = ""
+    if data_consulta:
+        consultas = consultas.filter(data_horario__date=data_consulta)
+
+    parametros = request.GET.copy()
+    parametros.pop("page", None)
+    pagina = Paginator(consultas, 10).get_page(request.GET.get("page"))
+    return {
+        "consultas": pagina,
+        "page_obj": pagina,
+        "busca": busca,
+        "status_atual": status_atual,
+        "data_atual": data_atual,
+        "status_choices": Consulta.Status.choices,
+        "filtros_query": parametros.urlencode(),
+    }
+
+
+@login_required
+@require_GET
+def consultas_medico_filtradas(request):
+    if request.user.is_superuser:
+        raise PermissionDenied("Seu usuário não possui acesso ao painel médico.")
+    medico = _obter_medico_ativo(request.user)
+    consultas_base = (
+        Consulta.objects.filter(medico=medico)
+        .select_related("paciente", "atendimento")
+        .order_by("data_horario")
+    )
+    return render(
+        request,
+        "core/partials/consultas_medico_lista.html",
+        _contexto_consultas_medico(request, consultas_base),
     )
 
 
