@@ -167,6 +167,33 @@ class AcessoAosPaineisTests(TestCase):
         self.assertEqual(resposta.status_code, 200)
         self.assertTemplateUsed(resposta, "core/dashboard.html")
 
+    def test_superadmin_filtra_consultas_sem_carregar_o_painel_completo(self):
+        consulta = Consulta.objects.get(medico=self.medico)
+        self.client.force_login(self.superadmin)
+
+        resposta = self.client.get(
+            reverse("consultas_filtradas"),
+            {
+                "busca": "Paciente da médica",
+                "status": Consulta.Status.PENDENTE,
+                "medico": self.medico.id,
+                "especialidade": self.medico.especialidade_id,
+                "data": timezone.localdate(consulta.data_horario).isoformat(),
+            },
+        )
+
+        self.assertEqual(resposta.status_code, 200)
+        self.assertTemplateUsed(resposta, "core/partials/consultas_lista.html")
+        self.assertContains(resposta, consulta.paciente.nome)
+        self.assertNotContains(resposta, "Paciente de outro médico")
+
+    def test_medico_nao_acessa_endpoint_de_consultas_filtradas(self):
+        self.client.force_login(self.medico.usuario)
+
+        resposta = self.client.get(reverse("consultas_filtradas"))
+
+        self.assertEqual(resposta.status_code, 403)
+
     def test_medico_e_encaminhado_e_ve_somente_suas_consultas(self):
         self.client.force_login(self.medico.usuario)
 

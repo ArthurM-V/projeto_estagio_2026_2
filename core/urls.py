@@ -17,6 +17,11 @@ urlpatterns = [
     ),
     path("painel/", views.dashboard, name="dashboard"),
     path(
+        "painel/consultas/lista/",
+        views.consultas_filtradas,
+        name="consultas_filtradas",
+    ),
+    path(
         "painel/consultas/<int:consulta_id>/",
         views.consulta_administrativo_detail,
         name="consulta_administrativo_detail",

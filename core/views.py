@@ -5,6 +5,7 @@ from django.contrib import messages
 from django.core.exceptions import PermissionDenied
 from django.db import IntegrityError, transaction
 from django.db.models.deletion import ProtectedError
+from django.core.paginator import Paginator
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
@@ -178,22 +179,13 @@ def _dashboard_administrativo(request):
         "medico__especialidade",
     ).order_by("data_horario")
 
-    status_atual = request.GET.get("status", "")
-    status_validos = {valor for valor, _ in Consulta.Status.choices}
-    consultas = consultas_base
-
-    if status_atual in status_validos:
-        consultas = consultas.filter(status=status_atual)
-    else:
-        status_atual = ""
+    contexto_consultas = _contexto_consultas_administrativas(request, consultas_base)
 
     return render(
         request,
         "core/dashboard.html",
         {
-            "consultas": consultas,
-            "status_atual": status_atual,
-            "status_choices": Consulta.Status.choices,
+            **contexto_consultas,
             "total_consultas": consultas_base.count(),
             "pendentes": consultas_base.filter(
                 status=Consulta.Status.PENDENTE
@@ -205,6 +197,77 @@ def _dashboard_administrativo(request):
                 data_horario__date=timezone.localdate()
             ).count(),
         },
+    )
+
+
+def _contexto_consultas_administrativas(request, consultas_base):
+    busca = request.GET.get("busca", "").strip()
+    medico_atual = request.GET.get("medico", "")
+    especialidade_atual = request.GET.get("especialidade", "")
+    data_atual = request.GET.get("data", "")
+    status_atual = request.GET.get("status", "")
+    status_validos = {valor for valor, _ in Consulta.Status.choices}
+    consultas = consultas_base
+
+    if busca:
+        consultas = consultas.filter(paciente__nome__icontains=busca)
+
+    if status_atual in status_validos:
+        consultas = consultas.filter(status=status_atual)
+    else:
+        status_atual = ""
+
+    if medico_atual.isdigit():
+        consultas = consultas.filter(medico_id=medico_atual)
+    else:
+        medico_atual = ""
+
+    if especialidade_atual.isdigit():
+        consultas = consultas.filter(medico__especialidade_id=especialidade_atual)
+    else:
+        especialidade_atual = ""
+
+    try:
+        data_consulta = date.fromisoformat(data_atual) if data_atual else None
+    except ValueError:
+        data_consulta = None
+        data_atual = ""
+    if data_consulta:
+        consultas = consultas.filter(data_horario__date=data_consulta)
+
+    parametros = request.GET.copy()
+    parametros.pop("page", None)
+    pagina = Paginator(consultas, 10).get_page(request.GET.get("page"))
+
+    return {
+        "consultas": pagina,
+        "page_obj": pagina,
+        "busca": busca,
+        "medico_atual": medico_atual,
+        "especialidade_atual": especialidade_atual,
+        "data_atual": data_atual,
+        "status_atual": status_atual,
+        "status_choices": Consulta.Status.choices,
+        "medicos": Medico.objects.select_related("especialidade"),
+        "especialidades": Especialidade.objects.all(),
+        "filtros_query": parametros.urlencode(),
+    }
+
+
+@login_required
+@require_GET
+def consultas_filtradas(request):
+    if not request.user.is_superuser:
+        raise PermissionDenied("Seu usuário não possui acesso ao painel administrativo.")
+
+    consultas_base = Consulta.objects.select_related(
+        "paciente",
+        "medico__especialidade",
+    ).order_by("data_horario")
+    return render(
+        request,
+        "core/partials/consultas_lista.html",
+        _contexto_consultas_administrativas(request, consultas_base),
     )
 
 
