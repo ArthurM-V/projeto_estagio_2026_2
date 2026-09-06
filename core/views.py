@@ -214,6 +214,7 @@ def _dashboard_administrativo(request, form_medico=None, form_redefinicao=None, 
             "medico_redefinicao": medico_redefinicao,
             "credenciais": credenciais,
             "medico_credencial": medico_credencial,
+            "aba_ativa": "medicos" if form_medico is not None or medico_redefinicao is not None or credenciais else "consultas",
         },
     )
 
@@ -356,6 +357,77 @@ def redefinir_senha_medico(request, medico_id):
         form_redefinicao=form,
         medico_redefinicao=medico,
     )
+
+
+def _contexto_medico_administrativo(medico, form_edicao=None, form_confirmacao_edicao=None, form_confirmacao_desligamento=None, secao_aberta=None):
+    return {
+        "medico": medico,
+        "form_edicao": form_edicao or MedicoCadastroForm(instance=medico),
+        "form_confirmacao_edicao": form_confirmacao_edicao or ConfirmacaoRedefinicaoSenhaForm(usuario_atual=None, prefix="confirmacao_edicao"),
+        "form_confirmacao_desligamento": form_confirmacao_desligamento or ConfirmacaoRedefinicaoSenhaForm(usuario_atual=None, prefix="confirmacao_desligamento"),
+        "secao_aberta": secao_aberta,
+        "total_consultas_medico": medico.consultas.count(),
+    }
+
+
+@login_required
+def medico_administrativo_detail(request, medico_id):
+    _apenas_superadmin(request)
+    medico = get_object_or_404(
+        Medico.objects.select_related("especialidade", "usuario").prefetch_related("consultas"),
+        pk=medico_id,
+    )
+
+    if request.method == "POST":
+        acao = request.POST.get("acao")
+        if acao == "editar":
+            form_edicao = MedicoCadastroForm(request.POST, instance=medico)
+            form_confirmacao_edicao = ConfirmacaoRedefinicaoSenhaForm(
+                request.POST, usuario_atual=request.user, prefix="confirmacao_edicao"
+            )
+            if form_edicao.is_valid() and form_confirmacao_edicao.is_valid():
+                medico = form_edicao.save()
+                if medico.usuario:
+                    medico.usuario.email = medico.email
+                    medico.usuario.save(update_fields=("email",))
+                messages.success(request, "Dados do médico atualizados com sucesso.")
+                return redirect("medico_administrativo_detail", medico_id=medico.id)
+            return render(
+                request,
+                "core/medico_administrativo_detail.html",
+                _contexto_medico_administrativo(
+                    medico,
+                    form_edicao=form_edicao,
+                    form_confirmacao_edicao=form_confirmacao_edicao,
+                    secao_aberta="edicao",
+                ),
+                status=400,
+            )
+
+        if acao == "desligar":
+            form_confirmacao_desligamento = ConfirmacaoRedefinicaoSenhaForm(
+                request.POST, usuario_atual=request.user, prefix="confirmacao_desligamento"
+            )
+            if form_confirmacao_desligamento.is_valid():
+                medico.ativo = False
+                medico.save(update_fields=("ativo",))
+                if medico.usuario:
+                    medico.usuario.is_active = False
+                    medico.usuario.save(update_fields=("is_active",))
+                messages.success(request, "Médico desligado e acesso ao painel bloqueado.")
+                return redirect("medico_administrativo_detail", medico_id=medico.id)
+            return render(
+                request,
+                "core/medico_administrativo_detail.html",
+                _contexto_medico_administrativo(
+                    medico,
+                    form_confirmacao_desligamento=form_confirmacao_desligamento,
+                    secao_aberta="desligamento",
+                ),
+                status=400,
+            )
+
+    return render(request, "core/medico_administrativo_detail.html", _contexto_medico_administrativo(medico))
 
 
 @login_required

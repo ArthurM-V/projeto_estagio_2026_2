@@ -1,107 +1,57 @@
 {% extends "core/base.html" %}
-
 {% block title %}Painel administrativo | SmartHealth{% endblock %}
 
 {% block extra_head %}
-  <style>
-    #painel-medicos .campo-formulario label { display: block; margin-bottom: .375rem; font-size: .875rem; font-weight: 600; color: #334155; }
-    #painel-medicos .campo-formulario .errorlist { margin: .375rem 0 0; padding: 0; color: #dc2626; font-size: .8rem; line-height: 1.3; list-style: none; }
-    @media (min-width: 640px) {
-      #painel-medicos .formulario-medico { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 1rem; }
-      #painel-medicos .campo-nome { grid-column: span 6; }
-      #painel-medicos .campo-crm { grid-column: span 2; }
-      #painel-medicos .campo-email { grid-column: span 4; }
-      #painel-medicos .campo-telefone,
-      #painel-medicos .campo-especialidade { grid-column: span 3; }
-      #painel-medicos .formulario-medico button { grid-column: span 6; }
-    }
-  </style>
+<style>
+  #painel-medicos .campo-formulario label { display:block; margin-bottom:.375rem; font-size:.875rem; font-weight:600; color:#334155; }
+  #painel-medicos .campo-formulario .errorlist { margin:.375rem 0 0; padding:0; color:#dc2626; font-size:.8rem; line-height:1.3; list-style:none; }
+  @media (min-width:640px) {
+    #painel-medicos .formulario-medico { display:grid; grid-template-columns:repeat(6,minmax(0,1fr)); gap:1rem; }
+    #painel-medicos .campo-nome { grid-column:span 6; } #painel-medicos .campo-crm { grid-column:span 2; }
+    #painel-medicos .campo-email { grid-column:span 4; } #painel-medicos .campo-telefone, #painel-medicos .campo-especialidade { grid-column:span 3; }
+    #painel-medicos .formulario-medico button { grid-column:span 6; }
+  }
+</style>
 {% endblock %}
 
 {% block header %}
-  <header class="border-b border-slate-200 bg-white">
-    <nav class="mx-auto flex max-w-7xl items-center justify-between gap-4 px-5 py-4 lg:px-8" aria-label="Navegação administrativa">
-      <a href="{% url 'dashboard' %}" class="flex min-w-0 items-center gap-3" aria-label="SmartHealth - Painel administrativo">
-        <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary-600 text-xl font-bold text-white shadow-sm">+</span>
-        <span class="min-w-0"><span class="block truncate text-lg font-bold tracking-tight text-primary-800">SmartHealth</span><span class="block truncate text-xs font-medium text-slate-500">Painel administrativo</span></span>
-      </a>
-      <div class="flex items-center gap-2 sm:gap-4">
-        <a href="{% url 'home' %}" class="hidden text-sm font-semibold text-slate-600 transition hover:text-primary-700 sm:inline">Ver página pública</a>
-        <div class="hidden h-8 w-px bg-slate-200 sm:block"></div>
-        <div class="hidden text-right md:block"><p class="text-sm font-semibold text-slate-800">{{ user.get_full_name|default:user.username }}</p><p class="text-xs text-slate-500">Equipe SmartHealth</p></div>
-        <form method="post" action="{% url 'logout' %}">{% csrf_token %}<button type="submit" class="rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700 transition hover:border-primary-600 hover:text-primary-700">Sair</button></form>
-      </div>
-    </nav>
-  </header>
+<header class="border-b border-slate-200 bg-white"><nav class="mx-auto flex max-w-7xl items-center justify-between gap-4 px-5 py-4 lg:px-8" aria-label="Navegação administrativa">
+  <a href="{% url 'dashboard' %}" class="flex min-w-0 items-center gap-3" aria-label="SmartHealth - Painel administrativo"><span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary-600 text-xl font-bold text-white shadow-sm">+</span><span class="min-w-0"><span class="block truncate text-lg font-bold tracking-tight text-primary-800">SmartHealth</span><span class="block truncate text-xs font-medium text-slate-500">Painel administrativo</span></span></a>
+  <div class="flex items-center gap-2 sm:gap-4"><a href="{% url 'home' %}" class="hidden text-sm font-semibold text-slate-600 transition hover:text-primary-700 sm:inline">Ver página pública</a><div class="hidden h-8 w-px bg-slate-200 sm:block"></div><div class="hidden text-right md:block"><p class="text-sm font-semibold text-slate-800">{{ user.get_full_name|default:user.username }}</p><p class="text-xs text-slate-500">Equipe SmartHealth</p></div><form method="post" action="{% url 'logout' %}">{% csrf_token %}<button type="submit" class="rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700 transition hover:border-primary-600 hover:text-primary-700">Sair</button></form></div>
+</nav></header>
 {% endblock %}
 
 {% block content %}
-  <section class="mx-auto max-w-7xl px-5 py-8 lg:px-8 lg:py-10">
-    <div class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-      <div><p class="text-sm font-bold uppercase tracking-[0.18em] text-primary-700">Visão geral</p><h1 class="mt-2 text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">Agenda de consultas</h1><p class="mt-3 text-sm leading-6 text-slate-600">Acompanhe as solicitações recebidas e a programação da clínica.</p></div>
-      <a href="{% url 'home' %}#agendamento" class="inline-flex items-center justify-center rounded-xl bg-primary-600 px-4 py-3 text-sm font-bold text-white shadow-sm transition hover:bg-primary-700">Nova solicitação</a>
-    </div>
-
-    <div class="mt-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-      <article class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"><p class="text-sm font-medium text-slate-500">Total de consultas</p><p class="mt-2 text-3xl font-bold text-slate-900">{{ total_consultas }}</p></article>
-      <article class="rounded-2xl border border-amber-100 bg-amber-50 p-5"><p class="text-sm font-medium text-amber-800">Pendentes</p><p class="mt-2 text-3xl font-bold text-amber-900">{{ pendentes }}</p></article>
-      <article class="rounded-2xl border border-emerald-100 bg-emerald-50 p-5"><p class="text-sm font-medium text-emerald-800">Confirmadas</p><p class="mt-2 text-3xl font-bold text-emerald-900">{{ confirmadas }}</p></article>
-      <article class="rounded-2xl border border-sky-100 bg-sky-50 p-5"><p class="text-sm font-medium text-sky-800">Consultas hoje</p><p class="mt-2 text-3xl font-bold text-sky-900">{{ consultas_hoje }}</p></article>
-    </div>
-
-    <section class="mt-10" id="painel-consultas" data-url="{% url 'consultas_filtradas' %}">
-      <div class="border-b border-slate-200 pb-5"><h2 class="text-xl font-bold text-slate-900">Consultas</h2><p class="mt-1 text-sm text-slate-600">Pesquise e combine filtros para localizar uma consulta.</p></div>
-      <form id="filtros-consultas" class="mt-6 grid gap-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm lg:grid-cols-6" method="get" action="{% url 'dashboard' %}">
-        <div class="lg:col-span-2"><label for="busca" class="mb-1.5 block text-sm font-semibold text-slate-700">Paciente</label><input id="busca" name="busca" value="{{ busca }}" autocomplete="off" placeholder="Buscar por nome" class="w-full rounded-xl border border-slate-300 px-3.5 py-3 text-sm outline-none transition focus:border-primary-500 focus:ring-4 focus:ring-primary-100" /></div>
-        <div><label for="status" class="mb-1.5 block text-sm font-semibold text-slate-700">Status</label><select id="status" name="status" class="w-full rounded-xl border border-slate-300 bg-white px-3.5 py-3 text-sm outline-none transition focus:border-primary-500 focus:ring-4 focus:ring-primary-100"><option value="">Todos</option>{% for valor, rotulo in status_choices %}<option value="{{ valor }}" {% if status_atual == valor %}selected{% endif %}>{{ rotulo }}</option>{% endfor %}</select></div>
-        <div><label for="medico" class="mb-1.5 block text-sm font-semibold text-slate-700">Médico</label><select id="medico" name="medico" class="w-full rounded-xl border border-slate-300 bg-white px-3.5 py-3 text-sm outline-none transition focus:border-primary-500 focus:ring-4 focus:ring-primary-100"><option value="">Todos</option>{% for medico in medicos %}<option value="{{ medico.id }}" {% if medico_atual == medico.id|stringformat:"s" %}selected{% endif %}>Dr(a). {{ medico.nome }}</option>{% endfor %}</select></div>
-        <div><label for="especialidade" class="mb-1.5 block text-sm font-semibold text-slate-700">Especialidade</label><select id="especialidade" name="especialidade" class="w-full rounded-xl border border-slate-300 bg-white px-3.5 py-3 text-sm outline-none transition focus:border-primary-500 focus:ring-4 focus:ring-primary-100"><option value="">Todas</option>{% for especialidade in especialidades %}<option value="{{ especialidade.id }}" {% if especialidade_atual == especialidade.id|stringformat:"s" %}selected{% endif %}>{{ especialidade.nome }}</option>{% endfor %}</select></div>
-        <div><label for="data" class="mb-1.5 block text-sm font-semibold text-slate-700">Data</label><input id="data" type="date" name="data" value="{{ data_atual }}" class="w-full rounded-xl border border-slate-300 px-3.5 py-3 text-sm outline-none transition focus:border-primary-500 focus:ring-4 focus:ring-primary-100" /></div>
-        <div class="flex items-end gap-3 lg:col-span-6"><button type="submit" class="rounded-xl bg-primary-600 px-5 py-3 text-sm font-bold text-white transition hover:bg-primary-700">Aplicar filtros</button><button type="button" id="limpar-filtros" class="rounded-xl px-4 py-3 text-sm font-bold text-slate-600 transition hover:bg-slate-100 hover:text-primary-700">Limpar filtros</button><span id="status-busca" class="text-sm text-slate-500" role="status" aria-live="polite"><span id="carregando-consultas" class="hidden items-center"><span class="h-4 w-4 animate-spin rounded-full border-2 border-primary-100 border-t-primary-600"></span><span class="sr-only">Atualizando consultas</span></span><span id="mensagem-busca"></span></span></div>
-      </form>
-      <div id="resultados-consultas" class="mt-6">{% include "core/partials/consultas_lista.html" %}</div>
-    </section>
-    <section class="mt-12 border-t border-slate-200 pt-10" id="painel-medicos">
-      <div><p class="text-sm font-bold uppercase tracking-[0.18em] text-primary-700">Equipe</p><h2 class="mt-2 text-2xl font-bold text-slate-900">Gestão de médicos</h2></div>
-      <div class="mt-6 grid gap-6 xl:grid-cols-[1.1fr_.9fr]">
-        {% include "core/partials/medico_cadastro_form.html" %}
-        {% include "core/partials/medicos_lista.html" %}
-      </div>
-    </section>
-    {% include "core/partials/redefinir_senha_modal.html" %}
-    {% if credenciais %}{% include "core/partials/credenciais_medico_modal.html" %}{% endif %}
-  </section>
+<section class="mx-auto max-w-7xl px-5 py-8 lg:px-8 lg:py-10" x-data="{ aba: '{{ aba_ativa }}' }">
+  <div class="border-b border-slate-200"><div class="flex gap-1" role="tablist" aria-label="Seções do painel administrativo">
+    <button id="aba-consultas" type="button" role="tab" aria-controls="conteudo-consultas" @click="aba = 'consultas'" :aria-selected="(aba === 'consultas').toString()" :class="aba === 'consultas' ? 'border-primary-600 text-primary-700' : 'border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-700'" class="border-b-2 px-4 py-3 text-sm font-bold transition">Gestão de consultas</button>
+    <button id="aba-medicos" type="button" role="tab" aria-controls="conteudo-medicos" @click="aba = 'medicos'" :aria-selected="(aba === 'medicos').toString()" :class="aba === 'medicos' ? 'border-primary-600 text-primary-700' : 'border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-700'" class="border-b-2 px-4 py-3 text-sm font-bold transition">Equipe médica</button>
+  </div></div>
+  <section id="conteudo-consultas" role="tabpanel" aria-labelledby="aba-consultas" x-show="aba === 'consultas'" class="pt-8">{% include "core/partials/dashboard_consultas.html" %}</section>
+  <section id="conteudo-medicos" role="tabpanel" aria-labelledby="aba-medicos" x-show="aba === 'medicos'" class="pt-8">{% include "core/partials/dashboard_medicos.html" %}</section>
+  {% include "core/partials/redefinir_senha_modal.html" %}
+  {% if credenciais %}{% include "core/partials/credenciais_medico_modal.html" %}{% endif %}
+</section>
 {% endblock %}
 
 {% block extra_scripts %}
-  <script>
-    (() => {
-      const painel = document.getElementById('painel-consultas');
-      const formulario = document.getElementById('filtros-consultas');
-      const resultados = document.getElementById('resultados-consultas');
-      const limpar = document.getElementById('limpar-filtros');
-      const carregando = document.getElementById('carregando-consultas');
-      const mensagem = document.getElementById('mensagem-busca');
-      let temporizador;
-      let requisicao;
-      const carregar = async (pagina = 1, atualizarUrl = true) => {
-        window.clearTimeout(temporizador);
-        const parametros = new URLSearchParams(new FormData(formulario));
-        if (pagina > 1) parametros.set('page', pagina); else parametros.delete('page');
-        requisicao?.abort(); requisicao = new AbortController(); resultados.setAttribute('aria-busy', 'true'); carregando.classList.remove('hidden'); carregando.classList.add('inline-flex'); mensagem.textContent = '';
-        try {
-          const resposta = await fetch(`${painel.dataset.url}?${parametros.toString()}`, { signal: requisicao.signal, headers: { 'X-Requested-With': 'XMLHttpRequest' } });
-          if (!resposta.ok) throw new Error();
-          resultados.innerHTML = await resposta.text();
-          if (atualizarUrl) history.replaceState({}, '', `${window.location.pathname}?${parametros.toString()}`);
-        } catch (erro) { if (erro.name !== 'AbortError') mensagem.textContent = 'Não foi possível atualizar as consultas. Tente novamente.'; }
-        finally { carregando.classList.add('hidden'); carregando.classList.remove('inline-flex'); resultados.removeAttribute('aria-busy'); }
-      };
-      formulario.addEventListener('submit', (evento) => { evento.preventDefault(); carregar(); });
-      formulario.querySelector('[name="busca"]').addEventListener('input', () => { temporizador = window.setTimeout(() => carregar(), 350); });
-      formulario.querySelectorAll('select, input[type="date"]').forEach((campo) => campo.addEventListener('change', () => carregar()));
-      limpar.addEventListener('click', () => { formulario.reset(); carregar(); });
-      resultados.addEventListener('click', (evento) => { const link = evento.target.closest('[data-pagina]'); if (!link) return; evento.preventDefault(); carregar(link.dataset.pagina); });
-    })();
-  </script>
+<script>
+(() => {
+  const painel = document.getElementById('painel-consultas'); const formulario = document.getElementById('filtros-consultas'); const resultados = document.getElementById('resultados-consultas'); const limpar = document.getElementById('limpar-filtros'); const carregando = document.getElementById('carregando-consultas'); const mensagem = document.getElementById('mensagem-busca');
+  if (!painel || !formulario || !resultados || !limpar || !carregando || !mensagem) return;
+  let temporizador; let requisicao;
+  const carregar = async (pagina = 1, atualizarUrl = true) => {
+    window.clearTimeout(temporizador); const parametros = new URLSearchParams(new FormData(formulario)); if (pagina > 1) parametros.set('page', pagina); else parametros.delete('page');
+    requisicao?.abort(); requisicao = new AbortController(); resultados.setAttribute('aria-busy', 'true'); carregando.classList.remove('hidden'); carregando.classList.add('inline-flex'); mensagem.textContent = '';
+    try { const resposta = await fetch(`${painel.dataset.url}?${parametros.toString()}`, { signal: requisicao.signal, headers: { 'X-Requested-With': 'XMLHttpRequest' } }); if (!resposta.ok) throw new Error(); resultados.innerHTML = await resposta.text(); if (atualizarUrl) history.replaceState({}, '', `${window.location.pathname}?${parametros.toString()}`); }
+    catch (erro) { if (erro.name !== 'AbortError') mensagem.textContent = 'Não foi possível atualizar as consultas. Tente novamente.'; }
+    finally { carregando.classList.add('hidden'); carregando.classList.remove('inline-flex'); resultados.removeAttribute('aria-busy'); }
+  };
+  formulario.addEventListener('submit', (evento) => { evento.preventDefault(); carregar(); });
+  formulario.querySelector('[name="busca"]').addEventListener('input', () => { temporizador = window.setTimeout(() => carregar(), 350); });
+  formulario.querySelectorAll('select, input[type="date"]').forEach((campo) => campo.addEventListener('change', () => carregar()));
+  limpar.addEventListener('click', () => { formulario.reset(); carregar(); });
+  resultados.addEventListener('click', (evento) => { const link = evento.target.closest('[data-pagina]'); if (!link) return; evento.preventDefault(); carregar(link.dataset.pagina); });
+})();
+</script>
 {% endblock %}
