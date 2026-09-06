@@ -1,6 +1,8 @@
 from datetime import date, datetime
+import re
 
 from django import forms
+from django.contrib.auth import authenticate
 from django.forms import inlineformset_factory
 from django.utils import timezone
 
@@ -13,6 +15,7 @@ from .models import (
     Paciente,
     Receita,
     ReceitaMedicamento,
+    Especialidade,
     SolicitacaoExame,
 )
 from .scheduling import horarios_da_clinica, horarios_disponiveis
@@ -420,3 +423,56 @@ ReceitaMedicamentoFormSet = inlineformset_factory(
     validate_max=True,
     can_delete=True,
 )
+
+
+CAMPO_PADRAO = "w-full rounded-xl border border-slate-300 bg-white px-3.5 py-3 text-sm outline-none transition focus:border-primary-500 focus:ring-4 focus:ring-primary-100"
+
+
+class MedicoCadastroForm(forms.ModelForm):
+    class Meta:
+        model = Medico
+        fields = ("nome", "crm", "email", "telefone", "especialidade")
+        widgets = {
+            "nome": forms.TextInput(attrs={"class": CAMPO_PADRAO}),
+            "crm": forms.TextInput(attrs={"class": CAMPO_PADRAO}),
+            "email": forms.EmailInput(attrs={"class": CAMPO_PADRAO}),
+            "telefone": forms.TextInput(attrs={"class": CAMPO_PADRAO}),
+            "especialidade": forms.Select(attrs={"class": CAMPO_PADRAO}),
+        }
+
+    def clean_nome(self):
+        nome = " ".join(self.cleaned_data["nome"].split())
+        if not all(parte.replace("-", "").isalpha() for parte in nome.split()):
+            raise forms.ValidationError("Informe apenas letras no nome do médico.")
+        return nome
+
+    def clean_crm(self):
+        crm = self.cleaned_data["crm"].upper().strip()
+        if not re.fullmatch(r"[A-Z]{2}\s?\d{4,6}", crm):
+            raise forms.ValidationError("Informe o CRM no formato UF seguido de 4 a 6 dígitos, como SP 123456.")
+        return crm
+
+    def clean_telefone(self):
+        telefone = self.cleaned_data["telefone"]
+        digitos = "".join(caractere for caractere in telefone if caractere.isdigit())
+        if telefone and len(digitos) not in (10, 11):
+            raise forms.ValidationError("Informe um telefone com DDD e 8 ou 9 dígitos.")
+        if telefone and any(not (caractere.isdigit() or caractere in " ()-+") for caractere in telefone):
+            raise forms.ValidationError("O telefone não pode conter letras ou símbolos não numéricos.")
+        return telefone
+
+
+class ConfirmacaoRedefinicaoSenhaForm(forms.Form):
+    usuario = forms.CharField(label="Seu usuário", widget=forms.TextInput(attrs={"class": CAMPO_PADRAO, "autocomplete": "username"}))
+    senha = forms.CharField(label="Sua senha", widget=forms.PasswordInput(attrs={"class": CAMPO_PADRAO, "autocomplete": "current-password"}))
+
+    def __init__(self, *args, usuario_atual, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.usuario_atual = usuario_atual
+
+    def clean(self):
+        dados = super().clean()
+        usuario = authenticate(username=dados.get("usuario"), password=dados.get("senha"))
+        if not usuario or usuario.pk != self.usuario_atual.pk or not usuario.is_superuser:
+            raise forms.ValidationError("Confirme com as credenciais do superadmin autenticado.")
+        return dados

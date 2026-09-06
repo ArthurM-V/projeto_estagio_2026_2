@@ -2,6 +2,26 @@
 
 {% block title %}Painel administrativo | SmartHealth{% endblock %}
 
+{% block extra_head %}
+  <style>
+    #painel-medicos form p { display: flex; flex-direction: column; margin: 0; }
+    #painel-medicos form label { display: block; order: 1; margin-bottom: .375rem; font-size: .875rem; font-weight: 600; color: #334155; }
+    #painel-medicos form input,
+    #painel-medicos form select { order: 2; }
+    #painel-medicos form .errorlist { order: 3; margin: .375rem 0 0; padding: 0; color: #dc2626; font-size: .8rem; line-height: 1.3; list-style: none; }
+    #painel-medicos .formulario-medico > .errorlist { grid-column: 1 / -1; }
+    @media (min-width: 640px) {
+      #painel-medicos .formulario-medico { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 1rem; }
+      #painel-medicos .formulario-medico p:nth-of-type(1) { grid-column: span 6; }
+      #painel-medicos .formulario-medico p:nth-of-type(2) { grid-column: span 2; }
+      #painel-medicos .formulario-medico p:nth-of-type(3) { grid-column: span 4; }
+      #painel-medicos .formulario-medico p:nth-of-type(4),
+      #painel-medicos .formulario-medico p:nth-of-type(5) { grid-column: span 3; }
+      #painel-medicos .formulario-medico button { grid-column: span 6; }
+    }
+  </style>
+{% endblock %}
+
 {% block header %}
   <header class="border-b border-slate-200 bg-white">
     <nav class="mx-auto flex max-w-7xl items-center justify-between gap-4 px-5 py-4 lg:px-8" aria-label="Navegação administrativa">
@@ -45,6 +65,15 @@
       </form>
       <div id="resultados-consultas" class="mt-6">{% include "core/partials/consultas_lista.html" %}</div>
     </section>
+    <section class="mt-12 border-t border-slate-200 pt-10" id="painel-medicos">
+      <div><p class="text-sm font-bold uppercase tracking-[0.18em] text-primary-700">Equipe</p><h2 class="mt-2 text-2xl font-bold text-slate-900">Gestão de médicos</h2></div>
+      <div class="mt-6 grid gap-6 xl:grid-cols-[1.1fr_.9fr]">
+        {% include "core/partials/medico_cadastro_form.html" %}
+        {% include "core/partials/medicos_lista.html" %}
+      </div>
+    </section>
+    {% include "core/partials/redefinir_senha_modal.html" %}
+    {% if credenciais %}{% include "core/partials/credenciais_medico_modal.html" %}{% endif %}
   </section>
 {% endblock %}
 

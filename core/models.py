@@ -40,6 +40,19 @@ class Medico(models.Model):
         return f"Dr(a). {self.nome} — {self.especialidade}"
 
 
+class RedefinicaoSenhaMedico(models.Model):
+    medico = models.ForeignKey(Medico, on_delete=models.CASCADE, related_name="redefinicoes_senha")
+    redefinida_por = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
+    senha_hash = models.CharField(max_length=128)
+    foi_redefinicao = models.BooleanField(default=True)
+    redefinida_em = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ("-redefinida_em",)
+        verbose_name = "redefinição de senha de médico"
+        verbose_name_plural = "redefinições de senha de médicos"
+
+
 class Paciente(models.Model):
     nome = models.CharField(max_length=120)
     cpf = models.CharField("CPF", max_length=14, unique=True)

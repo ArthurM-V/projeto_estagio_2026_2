@@ -16,6 +16,8 @@ urlpatterns = [
         name="login",
     ),
     path("painel/", views.dashboard, name="dashboard"),
+    path("painel/medicos/cadastrar/", views.cadastrar_medico, name="cadastrar_medico"),
+    path("painel/medicos/<int:medico_id>/redefinir-senha/", views.redefinir_senha_medico, name="redefinir_senha_medico"),
     path(
         "painel/consultas/lista/",
         views.consultas_filtradas,

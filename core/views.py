@@ -1,5 +1,10 @@
 from datetime import date, datetime
+from datetime import timedelta
+import secrets
+import string
 
+from django.contrib.auth import get_user_model
+from django.contrib.auth.hashers import check_password, make_password
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.core.exceptions import PermissionDenied
@@ -16,11 +21,13 @@ from .forms import (
     AtendimentoForm,
     ConsultaAdministrativaForm,
     ConsultaStatusForm,
+    ConfirmacaoRedefinicaoSenhaForm,
+    MedicoCadastroForm,
     ReceitaForm,
     ReceitaMedicamentoFormSet,
     SolicitacaoExameForm,
 )
-from .models import Atendimento, Consulta, Especialidade, Medico, Paciente, Receita
+from .models import Atendimento, Consulta, Especialidade, Medico, Paciente, Receita, RedefinicaoSenhaMedico
 from .scheduling import horarios_disponiveis
 
 
@@ -172,7 +179,7 @@ def dashboard(request):
     return redirect("medico_dashboard")
 
 
-def _dashboard_administrativo(request):
+def _dashboard_administrativo(request, form_medico=None, form_redefinicao=None, medico_redefinicao=None):
     consultas_base = Consulta.objects.select_related(
         "paciente",
         "medico",
@@ -180,6 +187,11 @@ def _dashboard_administrativo(request):
     ).order_by("data_horario")
 
     contexto_consultas = _contexto_consultas_administrativas(request, consultas_base)
+
+    credenciais = request.session.pop("credenciais_medico", None)
+    medico_credencial = None
+    if credenciais:
+        medico_credencial = get_object_or_404(Medico, pk=credenciais["medico_id"])
 
     return render(
         request,
@@ -196,6 +208,12 @@ def _dashboard_administrativo(request):
             "consultas_hoje": consultas_base.filter(
                 data_horario__date=timezone.localdate()
             ).count(),
+            "form_medico": form_medico or MedicoCadastroForm(),
+            "medicos_equipe": Medico.objects.select_related("especialidade", "usuario"),
+            "form_redefinicao": form_redefinicao or ConfirmacaoRedefinicaoSenhaForm(usuario_atual=request.user),
+            "medico_redefinicao": medico_redefinicao,
+            "credenciais": credenciais,
+            "medico_credencial": medico_credencial,
         },
     )
 
@@ -268,6 +286,75 @@ def consultas_filtradas(request):
         request,
         "core/partials/consultas_lista.html",
         _contexto_consultas_administrativas(request, consultas_base),
+    )
+
+
+def _senha_automatica(medico):
+    alfabeto = string.ascii_letters + string.digits
+    senhas_anteriores = list(medico.redefinicoes_senha.values_list("senha_hash", flat=True)) if medico.pk else []
+    senha_atual = medico.usuario.password if medico.usuario else ""
+    while True:
+        caracteres = [secrets.choice(string.ascii_lowercase), secrets.choice(string.ascii_uppercase), secrets.choice(string.digits)]
+        caracteres += [secrets.choice(alfabeto) for _ in range(7)]
+        secrets.SystemRandom().shuffle(caracteres)
+        senha = "".join(caracteres)
+        if not check_password(senha, senha_atual) and not any(check_password(senha, senha_hash) for senha_hash in senhas_anteriores):
+            return senha
+
+
+def _username_disponivel(nome):
+    base = "".join(caractere for caractere in nome.lower() if caractere.isalnum())[:140] or "medico"
+    User = get_user_model()
+    username, indice = base, 2
+    while User.objects.filter(username=username).exists():
+        username = f"{base[:145]}{indice}"
+        indice += 1
+    return username
+
+
+def _apenas_superadmin(request):
+    if not request.user.is_superuser:
+        raise PermissionDenied("Seu usuário não possui acesso ao painel administrativo.")
+
+
+@login_required
+def cadastrar_medico(request):
+    _apenas_superadmin(request)
+    form = MedicoCadastroForm(request.POST or None)
+    if request.method == "POST" and form.is_valid():
+        with transaction.atomic():
+            medico = form.save(commit=False)
+            senha = _senha_automatica(medico)
+            usuario = get_user_model().objects.create_user(username=_username_disponivel(medico.nome), email=medico.email, password=senha, is_staff=False, is_superuser=False)
+            medico.usuario = usuario
+            medico.save()
+            RedefinicaoSenhaMedico.objects.create(medico=medico, redefinida_por=request.user, senha_hash=make_password(senha), foi_redefinicao=False)
+        request.session["credenciais_medico"] = {"medico_id": medico.id, "senha": senha, "acao": "criado"}
+        return redirect("dashboard")
+    return _dashboard_administrativo(request, form)
+
+
+@login_required
+def redefinir_senha_medico(request, medico_id):
+    _apenas_superadmin(request)
+    medico = get_object_or_404(Medico.objects.select_related("usuario"), pk=medico_id, usuario__isnull=False)
+    ultima = medico.redefinicoes_senha.filter(foi_redefinicao=True).first()
+    if ultima and ultima.redefinida_em > timezone.now() - timedelta(days=15):
+        messages.error(request, "A senha deste médico só pode ser redefinida novamente após 15 dias.")
+        return redirect("dashboard")
+    form = ConfirmacaoRedefinicaoSenhaForm(request.POST or None, usuario_atual=request.user)
+    if request.method == "POST" and form.is_valid():
+        senha = _senha_automatica(medico)
+        with transaction.atomic():
+            medico.usuario.set_password(senha)
+            medico.usuario.save(update_fields=("password",))
+            RedefinicaoSenhaMedico.objects.create(medico=medico, redefinida_por=request.user, senha_hash=make_password(senha))
+        request.session["credenciais_medico"] = {"medico_id": medico.id, "senha": senha, "acao": "redefinida"}
+        return redirect("dashboard")
+    return _dashboard_administrativo(
+        request,
+        form_redefinicao=form,
+        medico_redefinicao=medico,
     )
 
 
