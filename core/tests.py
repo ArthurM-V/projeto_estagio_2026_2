@@ -241,6 +241,21 @@ class AcessoAosPaineisTests(TestCase):
         self.assertEqual(resposta.status_code, 200)
         self.assertTemplateUsed(resposta, "core/dashboard.html")
 
+    def test_dashboard_oculta_medicos_desligados_ate_o_filtro_ser_selecionado(self):
+        self.outro_medico.ativo = False
+        self.outro_medico.save(update_fields=("ativo",))
+        self.client.force_login(self.superadmin)
+
+        resposta = self.client.get(reverse("dashboard"))
+
+        self.assertEqual(list(resposta.context["medicos_equipe"]), [self.medico])
+
+        resposta = self.client.get(
+            reverse("dashboard"), {"situacao_medico": "desligado"}
+        )
+
+        self.assertEqual(list(resposta.context["medicos_equipe"]), [self.outro_medico])
+
     def test_superadmin_filtra_consultas_sem_carregar_o_painel_completo(self):
         consulta = Consulta.objects.get(medico=self.medico)
         self.client.force_login(self.superadmin)

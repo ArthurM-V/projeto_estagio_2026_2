@@ -278,6 +278,12 @@ def _dashboard_administrativo(request, form_medico=None, form_redefinicao=None, 
     ).order_by("data_horario")
 
     contexto_consultas = _contexto_consultas_administrativas(request, consultas_base)
+    situacao_medico = request.GET.get("situacao_medico", "ativo")
+    if situacao_medico not in {"ativo", "desligado"}:
+        situacao_medico = "ativo"
+    medicos_equipe = Medico.objects.select_related("especialidade", "usuario").filter(
+        ativo=situacao_medico == "ativo"
+    )
 
     credenciais = request.session.pop("credenciais_medico", None)
     medico_credencial = None
@@ -300,12 +306,13 @@ def _dashboard_administrativo(request, form_medico=None, form_redefinicao=None, 
                 data_horario__date=timezone.localdate()
             ).count(),
             "form_medico": form_medico or MedicoCadastroForm(),
-            "medicos_equipe": Medico.objects.select_related("especialidade", "usuario"),
+            "medicos_equipe": medicos_equipe,
+            "situacao_medico": situacao_medico,
             "form_redefinicao": form_redefinicao or ConfirmacaoRedefinicaoSenhaForm(usuario_atual=request.user),
             "medico_redefinicao": medico_redefinicao,
             "credenciais": credenciais,
             "medico_credencial": medico_credencial,
-            "aba_ativa": "medicos" if form_medico is not None or medico_redefinicao is not None or credenciais else "consultas",
+            "aba_ativa": "medicos" if form_medico is not None or medico_redefinicao is not None or credenciais or "situacao_medico" in request.GET else "consultas",
         },
     )
 
