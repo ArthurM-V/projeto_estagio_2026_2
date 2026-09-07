@@ -24,6 +24,7 @@
         <p class="text-sm font-bold uppercase tracking-[0.18em] text-primary-700">Consulta</p>
         <h1 class="mt-2 text-3xl font-bold tracking-tight text-slate-900">{{ consulta.paciente.nome }}</h1>
         <p class="mt-2 text-sm text-slate-600">{{ consulta.data_horario|date:"d/m/Y" }} às {{ consulta.data_horario|time:"H:i" }} · Dr(a). {{ consulta.medico.nome }}</p>
+        <p class="mt-1 text-sm text-slate-500">Agendada em {{ consulta.criado_em|date:"d/m/Y" }} às {{ consulta.criado_em|time:"H:i" }}</p>
       </div>
     </div>
 

@@ -48,6 +48,9 @@
           <p class="mt-2 text-sm text-slate-600">
             {{ consulta.data_horario|date:"d/m/Y" }} às {{ consulta.data_horario|time:"H:i" }} · {{ consulta.medico.especialidade.nome }}
           </p>
+          <p class="mt-1 text-sm text-slate-500">
+            Agendada em {{ consulta.criado_em|date:"d/m/Y" }} às {{ consulta.criado_em|time:"H:i" }}
+          </p>
         </div>
         {% if consulta.status == "pendente" %}
         <span
