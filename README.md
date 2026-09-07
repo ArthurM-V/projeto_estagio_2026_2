@@ -81,12 +81,12 @@ python manage.py runserver
 
 Abra [http://127.0.0.1:8000/](http://127.0.0.1:8000/) no navegador.
 
+Preencha as credenciais de superadmin criadas na etapa 4.
+
 | Perfil | Usuário | Senha | Painel |
 |---|---|---|---|
-| Superadmin | `admin` | `adminpassword` | [http://127.0.0.1:8000/painel/](http://127.0.0.1:8000/painel/) |
-| Médico | `usermedico` | `medicopassword` | [http://127.0.0.1:8000/painel/](http://127.0.0.1:8000/painel/) |
-
-Essas credenciais são exclusivamente para demonstração local. Não as use em ambiente público ou de produção.
+| Superadmin | `[ex:admin]` | `[ex:adminpassword]` | [http://127.0.0.1:8000/painel/](http://127.0.0.1:8000/painel/) |
+| Médico | `usermedico` | `medicopassword` | [http://127.0.0.1:8000/painel/medico/](http://127.0.0.1:8000/painel/medico/) |
 
 ## Regras de negócio principais
 
@@ -103,7 +103,8 @@ Essas credenciais são exclusivamente para demonstração local. Não as use em 
 |---|---|
 | `/` | Página pública e formulário de agendamento |
 | `/login/` | Login para os painéis |
-| `/painel/` | Painel administrativo ou médico, conforme o perfil autenticado |
+| `/painel/` | Painel administrativo |
+| `/painel/medico/` | Painel do médico |
 | `/admin/` | Administração padrão do Django |
 
 ## Testes e verificações
