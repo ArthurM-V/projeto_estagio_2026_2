@@ -153,6 +153,10 @@ class AcessoAosPaineisTests(TestCase):
             data_horario=data_horario,
         )
 
+    def confirmar_consulta(self, consulta):
+        consulta.status = Consulta.Status.CONFIRMADA
+        consulta.save(update_fields=("status",))
+
     def test_visitante_e_redirecionado_para_login(self):
         resposta = self.client.get(reverse("dashboard"))
 
@@ -217,6 +221,7 @@ class AcessoAosPaineisTests(TestCase):
 
     def test_medico_cria_atendimento_em_consulta_propria(self):
         consulta = Consulta.objects.get(medico=self.medico)
+        self.confirmar_consulta(consulta)
         self.client.force_login(self.medico.usuario)
 
         resposta = self.client.post(
@@ -249,6 +254,7 @@ class AcessoAosPaineisTests(TestCase):
 
     def test_medico_solicita_exame_em_consulta_propria(self):
         consulta = Consulta.objects.get(medico=self.medico)
+        self.confirmar_consulta(consulta)
         self.client.force_login(self.medico.usuario)
 
         resposta = self.client.post(
@@ -269,6 +275,7 @@ class AcessoAosPaineisTests(TestCase):
 
     def test_erro_na_solicitacao_de_exame_permanece_no_formulario(self):
         consulta = Consulta.objects.get(medico=self.medico)
+        self.confirmar_consulta(consulta)
         self.client.force_login(self.medico.usuario)
 
         resposta = self.client.post(
@@ -282,6 +289,7 @@ class AcessoAosPaineisTests(TestCase):
 
     def test_medico_emite_receita_em_consulta_propria(self):
         consulta = Consulta.objects.get(medico=self.medico)
+        self.confirmar_consulta(consulta)
         self.client.force_login(self.medico.usuario)
 
         resposta = self.client.post(
@@ -337,6 +345,60 @@ class AcessoAosPaineisTests(TestCase):
 
         self.assertEqual(resposta.status_code, 404)
         self.assertFalse(SolicitacaoExame.objects.exists())
+
+    def test_medico_nao_altera_registros_clinicos_fora_de_consulta_confirmada(self):
+        consulta = Consulta.objects.get(medico=self.medico)
+        self.client.force_login(self.medico.usuario)
+        dados_receita = {
+            "orientacoes": "",
+            "itens-TOTAL_FORMS": "1",
+            "itens-INITIAL_FORMS": "0",
+            "itens-MIN_NUM_FORMS": "1",
+            "itens-MAX_NUM_FORMS": "5",
+            "itens-0-medicamento": self.medicamento.id,
+            "itens-0-dosagem": "500 mg",
+            "itens-0-frequencia": "A cada 8 horas",
+            "itens-0-duracao": "3 dias",
+            "itens-0-instrucoes": "",
+        }
+
+        for status in (
+            Consulta.Status.PENDENTE,
+            Consulta.Status.CANCELADA,
+            Consulta.Status.AUSENTE,
+            Consulta.Status.CONCLUIDA,
+        ):
+            with self.subTest(status=status):
+                consulta.status = status
+                consulta.save(update_fields=("status",))
+
+                respostas = (
+                    self.client.post(
+                        reverse("consulta_medico_detail", args=[consulta.id]),
+                        {"sintomas": "Não deve ser salvo."},
+                    ),
+                    self.client.post(
+                        reverse("solicitar_exame", args=[consulta.id]),
+                        {"exame": self.exame.id},
+                    ),
+                    self.client.post(
+                        reverse("emitir_receita", args=[consulta.id]),
+                        dados_receita,
+                    ),
+                    self.client.post(reverse("salvar_prontuario", args=[consulta.id])),
+                )
+
+                for resposta in respostas:
+                    self.assertRedirects(
+                        resposta,
+                        reverse("consulta_medico_detail", args=[consulta.id]),
+                    )
+                self.assertFalse(Atendimento.objects.filter(consulta=consulta).exists())
+                self.assertFalse(
+                    SolicitacaoExame.objects.filter(consulta=consulta).exists()
+                )
+                self.assertFalse(Receita.objects.filter(consulta=consulta).exists())
+                self.assertFalse(Prontuario.objects.filter(paciente=consulta.paciente).exists())
 
     def test_superadmin_visualiza_detalhes_clinicos_da_consulta(self):
         consulta = Consulta.objects.get(medico=self.medico)
@@ -597,6 +659,7 @@ class AcessoAosPaineisTests(TestCase):
 
     def test_prontuario_reune_dados_clinicos_e_nao_muda_apos_conclusao(self):
         consulta = Consulta.objects.get(medico=self.medico)
+        self.confirmar_consulta(consulta)
         atendimento = Atendimento.objects.create(
             consulta=consulta,
             sexo=Atendimento.Sexo.FEMININO,

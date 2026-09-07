@@ -132,6 +132,18 @@ def _obter_atendimento(consulta):
         return None
 
 
+def _consulta_confirmada_para_registro(request, consulta):
+    """Impede qualquer alteração clínica fora de uma consulta confirmada."""
+    if consulta.status == Consulta.Status.CONFIRMADA:
+        return True
+
+    messages.error(
+        request,
+        "Registros clínicos só podem ser alterados em consultas confirmadas.",
+    )
+    return False
+
+
 def _estado_prontuario(consulta):
     try:
         prontuario = consulta.paciente.prontuario
@@ -146,7 +158,7 @@ def _estado_prontuario(consulta):
         if data:
             alteracoes.append(data)
     ultima_alteracao = max(alteracoes, default=None)
-    pode_atualizar = consulta.status != Consulta.Status.CONCLUIDA and (
+    pode_atualizar = consulta.status == Consulta.Status.CONFIRMADA and (
         prontuario is None or (ultima_alteracao and ultima_alteracao > prontuario.atualizado_em)
     )
     return prontuario, pode_atualizar
@@ -683,6 +695,9 @@ def consulta_medico_detail(request, consulta_id):
     atendimento = _obter_atendimento(consulta)
 
     if request.method == "POST":
+        if not _consulta_confirmada_para_registro(request, consulta):
+            return redirect("consulta_medico_detail", consulta_id=consulta.id)
+
         form = AtendimentoForm(request.POST, instance=atendimento)
         if form.is_valid():
             atendimento = form.save(commit=False)
@@ -712,6 +727,9 @@ def salvar_prontuario(request, consulta_id):
         pk=consulta_id,
         medico=medico,
     )
+    if not _consulta_confirmada_para_registro(request, consulta):
+        return redirect("consulta_medico_detail", consulta_id=consulta.id)
+
     prontuario, pode_atualizar = _estado_prontuario(consulta)
     if not pode_atualizar:
         messages.error(request, "O prontuário não pode ser atualizado neste momento.")
@@ -756,6 +774,9 @@ def solicitar_exame(request, consulta_id):
         pk=consulta_id,
         medico=medico,
     )
+    if not _consulta_confirmada_para_registro(request, consulta):
+        return redirect("consulta_medico_detail", consulta_id=consulta.id)
+
     form = SolicitacaoExameForm(request.POST)
 
     if form.is_valid():
@@ -790,6 +811,9 @@ def emitir_receita(request, consulta_id):
         pk=consulta_id,
         medico=medico,
     )
+    if not _consulta_confirmada_para_registro(request, consulta):
+        return redirect("consulta_medico_detail", consulta_id=consulta.id)
+
     receita = Receita(consulta=consulta)
     form_receita = ReceitaForm(request.POST, instance=receita)
     formset_receita = ReceitaMedicamentoFormSet(

@@ -46,6 +46,7 @@
           {% for message in messages %}
             <div
               x-data="{ visivel: true }"
+              x-init="setTimeout(() => visivel = false, 5000)"
               x-show="visivel"
               x-transition
               class="pointer-events-auto flex items-start justify-between gap-3 rounded-xl border px-4 py-3 shadow-lg {% if message.tags == 'error' %}border-red-200 bg-red-50 text-red-800{% elif message.tags == 'warning' %}border-amber-200 bg-amber-50 text-amber-800{% elif message.tags == 'success' %}border-emerald-200 bg-emerald-50 text-emerald-800{% else %}border-sky-200 bg-sky-50 text-sky-800{% endif %}"
