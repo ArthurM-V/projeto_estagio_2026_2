@@ -10,7 +10,7 @@ Sistema web para agendamento e gestão de consultas de uma clínica fictícia. V
 - Status da consulta limitados a `pendente`, `confirmado` e `cancelado`.
 - Painel médico restrito às próprias consultas, com atendimento, solicitação de exames, receitas e prontuário.
 - Conclusão de atendimento registrada separadamente do status da consulta.
-- Oito especialidades e profissionais de demonstração carregados por seed.
+- Oito especialidades e nove profissionais de demonstração carregados por seed.
 - Páginas personalizadas para erros 403, 404 e 500 quando `DEBUG=False`.
 
 ## Stack
@@ -27,16 +27,16 @@ Sistema web para agendamento e gestão de consultas de uma clínica fictícia. V
 
 Não há variáveis de ambiente obrigatórias para executar o projeto localmente.
 
-## Instalação e execução
+## Guia de instalação
 
-Clone o repositório e entre na pasta do projeto:
+## 1. Clone o repositório e entre na pasta do projeto:
 
 ```bash
-git clone <https://github.com/ArthurM-V/projeto_estagio_2026_2.git>
+git clone https://github.com/ArthurM-V/projeto_estagio_2026_2.git
 cd projeto_estagio_2026_2
 ```
 
-Crie e ative um ambiente virtual.
+## 2. Crie e ative um ambiente virtual.
 
 No Windows com PowerShell:
 
@@ -52,7 +52,7 @@ python3 -m venv venv
 source venv/bin/activate
 ```
 
-Instale as dependências, crie as tabelas e carregue os dados de demonstração:
+## 3. Instale as dependências, crie as tabelas e carregue os dados de demonstração:
 
 ```bash
 python -m pip install --upgrade pip
@@ -63,56 +63,17 @@ python manage.py seed_data
 
 O banco `db.sqlite3` não faz parte do repositório. Portanto, os comandos `migrate` e `seed_data` são necessários em uma cópia nova do projeto.
 
-## Contas de demonstração
+O comando `python manage.py seed_data` cria ou atualiza apenas a conta médica de demonstração e a vincula ao Dr. João Silva.
 
-Após executar o seed, abra o shell do Django:
+## 4. Crie o superusuário
+
+Isso permite que você acesse o painel de gerenciamento do administrador
 
 ```bash
-python manage.py shell
+python manage.py createsuperuser
 ```
 
-Cole o bloco abaixo. Ele cria ou atualiza as duas contas de demonstração e associa o usuário médico ao Dr. João Silva.
-
-```python
-from django.contrib.auth import get_user_model
-from core.models import Especialidade, Medico
-
-User = get_user_model()
-
-admin, _ = User.objects.get_or_create(username="admin")
-admin.email = "admin@smarthealth.test"
-admin.is_staff = True
-admin.is_superuser = True
-admin.is_active = True
-admin.set_password("adminpassword")
-admin.save()
-
-especialidade = Especialidade.objects.get(nome="Clínica geral")
-medico, _ = Medico.objects.update_or_create(
-    crm="123",
-    defaults={
-        "nome": "João Silva",
-        "email": "jemail@email.com",
-        "telefone": "123",
-        "especialidade": especialidade,
-        "ativo": True,
-    },
-)
-usermedico, _ = User.objects.get_or_create(username="usermedico")
-usermedico.email = "usermedico@smarthealth.test"
-usermedico.is_staff = False
-usermedico.is_superuser = False
-usermedico.is_active = True
-usermedico.set_password("medicopassword")
-usermedico.save()
-
-Medico.objects.filter(usuario=usermedico).exclude(pk=medico.pk).update(usuario=None)
-medico.usuario = usermedico
-medico.ativo = True
-medico.save(update_fields=("usuario", "ativo"))
-```
-
-Saia do shell com `exit()` e inicie o servidor:
+## 5. Inicie o servidor:
 
 ```bash
 python manage.py runserver

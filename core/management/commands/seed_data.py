@@ -1,3 +1,4 @@
+from django.contrib.auth import get_user_model
 from django.core.management.base import BaseCommand
 from django.db import transaction
 
@@ -96,6 +97,13 @@ MEDICOS = [
         "telefone": "(11) 4000-1008",
         "especialidade": "Ortopedia e traumatologia",
     },
+    {
+        "nome": "João Silva",
+        "crm": "123",
+        "email": "jemail@email.com",
+        "telefone": "123",
+        "especialidade": "Clínica geral",
+    },
 ]
 
 EXAMES = [
@@ -154,6 +162,7 @@ class Command(BaseCommand):
         with transaction.atomic():
             self._normalizar_nomes_de_especialidades()
             especialidades = {}
+            medicos = {}
 
             for dados in ESPECIALIDADES:
                 especialidade, criada = Especialidade.objects.update_or_create(
@@ -165,7 +174,7 @@ class Command(BaseCommand):
 
             for dados in MEDICOS:
                 especialidade = especialidades[dados["especialidade"]]
-                _, criado = Medico.objects.update_or_create(
+                medico, criado = Medico.objects.update_or_create(
                     crm=dados["crm"],
                     defaults={
                         "nome": dados["nome"],
@@ -175,8 +184,10 @@ class Command(BaseCommand):
                         "ativo": True,
                     },
                 )
+                medicos[medico.crm] = medico
                 self._registrar_resultado(criado, totais)
 
+            self._criar_usuario_medico_de_demonstracao(medicos["123"], totais)
 
             for dados in EXAMES:
                 _, criado = Exame.objects.update_or_create(
@@ -207,6 +218,26 @@ class Command(BaseCommand):
 
     def _registrar_resultado(self, criado, totais):
         totais["criados" if criado else "atualizados"] += 1
+
+    def _criar_usuario_medico_de_demonstracao(self, medico, totais):
+        """Cria uma conta local previsível para demonstrar o painel médico."""
+        User = get_user_model()
+
+        usuario_medico, criado = User.objects.get_or_create(username="usermedico")
+        usuario_medico.email = "usermedico@smarthealth.test"
+        usuario_medico.is_staff = False
+        usuario_medico.is_superuser = False
+        usuario_medico.is_active = True
+        usuario_medico.set_password("medicopassword")
+        usuario_medico.save()
+        self._registrar_resultado(criado, totais)
+
+        Medico.objects.filter(usuario=usuario_medico).exclude(pk=medico.pk).update(
+            usuario=None
+        )
+        medico.usuario = usuario_medico
+        medico.ativo = True
+        medico.save(update_fields=("usuario", "ativo"))
 
     def _normalizar_nomes_de_especialidades(self):
         """Mantém os dados antigos compatíveis com a capitalização atual."""

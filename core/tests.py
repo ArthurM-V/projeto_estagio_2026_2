@@ -1,6 +1,9 @@
+from io import StringIO
+
 from datetime import date, datetime, time, timedelta
 
 from django.contrib.auth import get_user_model
+from django.core.management import call_command
 from django.test import SimpleTestCase, TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
@@ -30,6 +33,39 @@ class PaginasDeErroTests(SimpleTestCase):
         self.assertTemplateUsed(resposta, "core/error_page.html")
         self.assertContains(resposta, "Erro 404", status_code=404)
         self.assertContains(resposta, "Página não encontrada", status_code=404)
+
+
+class SeedDataTests(TestCase):
+    def test_seed_cria_usuario_medico_e_vincula_joao_silva(self):
+        call_command("seed_data", stdout=StringIO())
+
+        User = get_user_model()
+        usuario_medico = User.objects.get(username="usermedico")
+        medico = Medico.objects.get(crm="123")
+
+        self.assertFalse(User.objects.filter(username="admin").exists())
+        self.assertFalse(usuario_medico.is_superuser)
+        self.assertTrue(usuario_medico.check_password("medicopassword"))
+        self.assertEqual(medico.nome, "João Silva")
+        self.assertEqual(medico.usuario, usuario_medico)
+
+        call_command("seed_data", stdout=StringIO())
+        self.assertEqual(User.objects.filter(username="usermedico").count(), 1)
+
+    def test_seed_nao_altera_superadmin_existente(self):
+        User = get_user_model()
+        admin = User.objects.create_superuser(
+            username="admin",
+            email="admin@smarthealth.test",
+            password="senha-original-segura",
+        )
+        senha_original = admin.password
+
+        call_command("seed_data", stdout=StringIO())
+
+        admin.refresh_from_db()
+        self.assertTrue(admin.is_superuser)
+        self.assertEqual(admin.password, senha_original)
 
 
 class AgendamentoConsultaTests(TestCase):
