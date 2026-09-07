@@ -1,4 +1,4 @@
-from datetime import datetime, time, timedelta
+from datetime import date, datetime, time, timedelta
 
 from django.contrib.auth import get_user_model
 from django.test import TestCase
@@ -18,6 +18,7 @@ from .models import (
     Receita,
     SolicitacaoExame,
 )
+from .scheduling import data_maxima_agendamento, horarios_disponiveis
 
 
 class AgendamentoConsultaTests(TestCase):
@@ -85,6 +86,26 @@ class AgendamentoConsultaTests(TestCase):
             resposta.context["form"].fields["horario"].choices,
         )
         self.assertEqual(Consulta.objects.count(), 1)
+
+    def test_data_posterior_a_seis_meses_nao_pode_ser_agendada(self):
+        dados = self.dados_validos()
+        dados["data"] = (data_maxima_agendamento() + timedelta(days=1)).isoformat()
+
+        resposta = self.client.post(reverse("home"), dados)
+
+        self.assertEqual(resposta.status_code, 200)
+        self.assertIn("data", resposta.context["form"].errors)
+        self.assertEqual(Consulta.objects.count(), 0)
+        self.assertEqual(
+            horarios_disponiveis(
+                self.medico,
+                data_maxima_agendamento() + timedelta(days=1),
+            ),
+            [],
+        )
+
+    def test_limite_de_seis_meses_respeita_o_ultimo_dia_do_mes(self):
+        self.assertEqual(data_maxima_agendamento(date(2026, 8, 31)), date(2027, 2, 28))
 
 
 class AcessoAosPaineisTests(TestCase):
@@ -494,6 +515,22 @@ class AcessoAosPaineisTests(TestCase):
             timezone.localtime(consulta.data_horario).time().replace(tzinfo=None),
             time(11),
         )
+
+    def test_superadmin_nao_reagenda_para_data_posterior_a_seis_meses(self):
+        consulta = Consulta.objects.get(medico=self.medico)
+        self.client.force_login(self.superadmin)
+
+        resposta = self.client.post(
+            reverse("consulta_administrativo_detail", args=[consulta.id]),
+            {
+                "acao": "reagendar",
+                "data": (data_maxima_agendamento() + timedelta(days=1)).isoformat(),
+                "horario": "10:00",
+            },
+        )
+
+        self.assertEqual(resposta.status_code, 200)
+        self.assertIn("data", resposta.context["reagendamento_form"].errors)
 
     def test_superadmin_nao_reagenda_para_horario_ocupado(self):
         consulta = Consulta.objects.get(medico=self.medico)

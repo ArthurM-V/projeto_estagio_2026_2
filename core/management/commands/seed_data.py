@@ -6,7 +6,7 @@ from core.models import Especialidade, Exame, Medicamento, Medico
 
 ESPECIALIDADES = [
     {
-        "nome": "Clínica Geral",
+        "nome": "Clínica geral",
         "descricao": "Avaliação, prevenção e acompanhamento da saúde do paciente.",
     },
     {
@@ -21,6 +21,22 @@ ESPECIALIDADES = [
         "nome": "Pediatria",
         "descricao": "Acompanhamento da saúde de crianças e adolescentes.",
     },
+    {
+        "nome": "Endocrinologia",
+        "descricao": "Prevenção e acompanhamento de condições hormonais e metabólicas.",
+    },
+    {
+        "nome": "Gastroenterologia",
+        "descricao": "Cuidado especializado para a saúde do sistema digestivo.",
+    },
+    {
+        "nome": "Neurologia",
+        "descricao": "Avaliação e acompanhamento da saúde do sistema nervoso.",
+    },
+    {
+        "nome": "Ortopedia e traumatologia",
+        "descricao": "Atenção a ossos, articulações, músculos e lesões.",
+    },
 ]
 
 MEDICOS = [
@@ -29,7 +45,7 @@ MEDICOS = [
         "crm": "SP 123456",
         "email": "marina.alves@smarthealth.test",
         "telefone": "(11) 4000-1001",
-        "especialidade": "Clínica Geral",
+        "especialidade": "Clínica geral",
     },
     {
         "nome": "Ricardo Nunes",
@@ -51,6 +67,34 @@ MEDICOS = [
         "email": "joao.mendes@smarthealth.test",
         "telefone": "(11) 4000-1004",
         "especialidade": "Pediatria",
+    },
+    {
+        "nome": "Renata Lima",
+        "crm": "SP 123460",
+        "email": "renata.lima@smarthealth.test",
+        "telefone": "(11) 4000-1005",
+        "especialidade": "Endocrinologia",
+    },
+    {
+        "nome": "Bruno Costa",
+        "crm": "SP 123461",
+        "email": "bruno.costa@smarthealth.test",
+        "telefone": "(11) 4000-1006",
+        "especialidade": "Gastroenterologia",
+    },
+    {
+        "nome": "Fernanda Araújo",
+        "crm": "SP 123462",
+        "email": "fernanda.araujo@smarthealth.test",
+        "telefone": "(11) 4000-1007",
+        "especialidade": "Neurologia",
+    },
+    {
+        "nome": "Marcos Oliveira",
+        "crm": "SP 123463",
+        "email": "marcos.oliveira@smarthealth.test",
+        "telefone": "(11) 4000-1008",
+        "especialidade": "Ortopedia e traumatologia",
     },
 ]
 
@@ -108,6 +152,7 @@ class Command(BaseCommand):
         totais = {"criados": 0, "atualizados": 0}
 
         with transaction.atomic():
+            self._normalizar_nomes_de_especialidades()
             especialidades = {}
 
             for dados in ESPECIALIDADES:
@@ -162,3 +207,22 @@ class Command(BaseCommand):
 
     def _registrar_resultado(self, criado, totais):
         totais["criados" if criado else "atualizados"] += 1
+
+    def _normalizar_nomes_de_especialidades(self):
+        """Mantém os dados antigos compatíveis com a capitalização atual."""
+        nome_antigo = "Clínica Geral"
+        nome_atual = "Clínica geral"
+        especialidade_antiga = Especialidade.objects.filter(nome=nome_antigo).first()
+        especialidade_atual = Especialidade.objects.filter(nome=nome_atual).first()
+
+        if not especialidade_antiga:
+            return
+        if especialidade_atual:
+            Medico.objects.filter(especialidade=especialidade_antiga).update(
+                especialidade=especialidade_atual
+            )
+            especialidade_antiga.delete()
+            return
+
+        especialidade_antiga.nome = nome_atual
+        especialidade_antiga.save(update_fields=("nome",))

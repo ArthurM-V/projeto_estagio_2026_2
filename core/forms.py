@@ -19,7 +19,11 @@ from .models import (
     Especialidade,
     SolicitacaoExame,
 )
-from .scheduling import horarios_da_clinica, horarios_disponiveis
+from .scheduling import (
+    data_maxima_agendamento,
+    horarios_da_clinica,
+    horarios_disponiveis,
+)
 
 
 class AgendamentoConsultaForm(forms.Form):
@@ -79,6 +83,7 @@ class AgendamentoConsultaForm(forms.Form):
         self.fields["medico"].queryset = Medico.objects.filter(
             ativo=True
         ).select_related("especialidade")
+        self.fields["data"].widget.attrs["max"] = data_maxima_agendamento().isoformat()
         self._definir_horarios_disponiveis()
 
     def _definir_horarios_disponiveis(self):
@@ -136,6 +141,11 @@ class AgendamentoConsultaForm(forms.Form):
         if data < timezone.localdate():
             raise forms.ValidationError("Escolha uma data de hoje ou futura.")
 
+        if data > data_maxima_agendamento():
+            raise forms.ValidationError(
+                "Escolha uma data dentro dos próximos seis meses."
+            )
+
         return data
 
     def clean(self):
@@ -192,6 +202,7 @@ class ConsultaAdministrativaForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.fields["data"].widget.attrs["max"] = data_maxima_agendamento().isoformat()
         if self.instance and self.instance.pk:
             data_horario = timezone.localtime(self.instance.data_horario)
             self.initial.setdefault("data", data_horario.date())
@@ -224,6 +235,14 @@ class ConsultaAdministrativaForm(forms.ModelForm):
             (horario.strftime("%H:%M"), horario.strftime("%H:%M"))
             for horario in horarios
         ]
+
+    def clean_data(self):
+        data_consulta = self.cleaned_data["data"]
+        if data_consulta > data_maxima_agendamento():
+            raise forms.ValidationError(
+                "Escolha uma data dentro dos próximos seis meses."
+            )
+        return data_consulta
 
     def clean(self):
         cleaned_data = super().clean()

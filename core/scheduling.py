@@ -1,4 +1,5 @@
-from datetime import datetime, time
+from calendar import monthrange
+from datetime import date, datetime, time
 
 from django.utils import timezone
 
@@ -26,6 +27,16 @@ HORARIOS_SABADO = (
 )
 
 
+def data_maxima_agendamento(data_referencia=None):
+    """Retorna a última data disponível: seis meses-calendário à frente."""
+    data_referencia = data_referencia or timezone.localdate()
+    mes_destino = data_referencia.month + 6
+    ano_destino = data_referencia.year + (mes_destino - 1) // 12
+    mes_destino = (mes_destino - 1) % 12 + 1
+    ultimo_dia = monthrange(ano_destino, mes_destino)[1]
+    return date(ano_destino, mes_destino, min(data_referencia.day, ultimo_dia))
+
+
 def horarios_da_clinica(data):
     if data.weekday() < 5:
         return HORARIOS_SEMANA
@@ -36,7 +47,11 @@ def horarios_da_clinica(data):
 
 def horarios_disponiveis(medico, data, consulta_excluida_id=None):
     """Retorna os horários livres do médico em uma data da agenda da clínica."""
-    if not medico.ativo or data < timezone.localdate():
+    if (
+        not medico.ativo
+        or data < timezone.localdate()
+        or data > data_maxima_agendamento()
+    ):
         return []
 
     fuso_horario = timezone.get_current_timezone()
