@@ -54,25 +54,15 @@
           class="w-fit rounded-full bg-amber-100 px-3 py-1 text-xs font-bold text-amber-800"
           >Pendente</span
         >
-        {% elif consulta.status == "confirmada" %}
+        {% elif consulta.status == "confirmado" %}
         <span
           class="w-fit rounded-full bg-emerald-100 px-3 py-1 text-xs font-bold text-emerald-800"
-          >Confirmada</span
+          >Confirmado</span
         >
-        {% elif consulta.status == "cancelada" %}
+        {% elif consulta.status == "cancelado" %}
         <span
           class="w-fit rounded-full bg-red-100 px-3 py-1 text-xs font-bold text-red-800"
-          >Cancelada</span
-        >
-        {% elif consulta.status == "ausente" %}
-        <span
-          class="w-fit rounded-full bg-orange-100 px-3 py-1 text-xs font-bold text-orange-800"
-          >Ausente</span
-        >
-        {% else %}
-        <span
-          class="w-fit rounded-full bg-sky-100 px-3 py-1 text-xs font-bold text-sky-800"
-          >Concluída</span
+          >Cancelado</span
         >
         {% endif %}
       </div>
@@ -80,9 +70,9 @@
       <div class="mt-5 flex flex-wrap gap-2">
         <button type="button" @click="modalProntuario = true" {% if not pode_atualizar_prontuario %}disabled{% endif %} class="inline-flex rounded-lg bg-primary-600 px-3 py-2 text-sm font-bold text-white transition hover:bg-primary-700 disabled:cursor-not-allowed disabled:bg-slate-300">{% if prontuario %}Atualizar prontuário{% else %}Criar prontuário{% endif %}</button>
         {% if prontuario %}<button type="button" @click="modalVisualizarProntuario = true" class="inline-flex rounded-lg border border-slate-300 px-3 py-2 text-sm font-bold text-slate-700 transition hover:bg-slate-50">Ver prontuário</button>{% endif %}
-        {% if consulta.status == "confirmada" %}<button type="button" @click="modalConcluir = true" class="inline-flex rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-bold text-emerald-800 transition hover:bg-emerald-100">Concluir consulta</button>{% endif %}
+        {% if consulta.status == "confirmado" and not consulta.esta_concluida %}<button type="button" @click="modalConcluir = true" class="inline-flex rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-bold text-emerald-800 transition hover:bg-emerald-100">Concluir consulta</button>{% endif %}
       </div>
-      {% if not pode_atualizar_prontuario %}<p class="mt-2 text-xs text-slate-500">{% if consulta.status == "concluida" %}O prontuário não pode ser atualizado após a conclusão da consulta.{% else %}Não há novas alterações clínicas para registrar.{% endif %}</p>{% endif %}
+      {% if consulta.esta_concluida %}<p class="mt-2 text-xs text-slate-500">Atendimento concluído em {{ consulta.concluida_em|date:"d/m/Y" }} às {{ consulta.concluida_em|time:"H:i" }}. O prontuário não pode mais ser atualizado.</p>{% elif not pode_atualizar_prontuario %}<p class="mt-2 text-xs text-slate-500">Não há novas alterações clínicas para registrar.</p>{% endif %}
 
       {% if consulta.observacoes %}
       <div class="mt-6 rounded-xl bg-slate-50 px-4 py-3">

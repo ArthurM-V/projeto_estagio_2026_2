@@ -134,12 +134,12 @@ def _obter_atendimento(consulta):
 
 def _consulta_confirmada_para_registro(request, consulta):
     """Impede qualquer alteração clínica fora de uma consulta confirmada."""
-    if consulta.status == Consulta.Status.CONFIRMADA:
+    if consulta.status == Consulta.Status.CONFIRMADO and not consulta.esta_concluida:
         return True
 
     messages.error(
         request,
-        "Registros clínicos só podem ser alterados em consultas confirmadas.",
+        "Registros clínicos só podem ser alterados em consultas confirmadas e ainda não concluídas.",
     )
     return False
 
@@ -158,8 +158,12 @@ def _estado_prontuario(consulta):
         if data:
             alteracoes.append(data)
     ultima_alteracao = max(alteracoes, default=None)
-    pode_atualizar = consulta.status == Consulta.Status.CONFIRMADA and (
+    pode_atualizar = (
+        consulta.status == Consulta.Status.CONFIRMADO
+        and not consulta.esta_concluida
+        and (
         prontuario is None or (ultima_alteracao and ultima_alteracao > prontuario.atualizado_em)
+        )
     )
     return prontuario, pode_atualizar
 
@@ -290,7 +294,7 @@ def _dashboard_administrativo(request, form_medico=None, form_redefinicao=None, 
                 status=Consulta.Status.PENDENTE
             ).count(),
             "confirmadas": consultas_base.filter(
-                status=Consulta.Status.CONFIRMADA
+                status=Consulta.Status.CONFIRMADO
             ).count(),
             "consultas_hoje": consultas_base.filter(
                 data_horario__date=timezone.localdate()
@@ -664,7 +668,7 @@ def excluir_consulta(request, consulta_id):
     consulta = get_object_or_404(
         Consulta.objects.select_related("paciente", "medico__especialidade"),
         pk=consulta_id,
-        status=Consulta.Status.CANCELADA,
+        status=Consulta.Status.CANCELADO,
     )
 
     try:
@@ -751,13 +755,15 @@ def concluir_consulta_medico(request, consulta_id):
 
     medico = _obter_medico_ativo(request.user)
     consulta = get_object_or_404(Consulta, pk=consulta_id, medico=medico)
-    if consulta.status != Consulta.Status.CONFIRMADA:
+    if consulta.status != Consulta.Status.CONFIRMADO:
         messages.error(request, "Somente consultas confirmadas podem ser concluídas pelo médico.")
+    elif consulta.esta_concluida:
+        messages.info(request, "Esta consulta já foi concluída.")
     elif not _obter_atendimento(consulta):
         messages.error(request, "Registre o atendimento clínico antes de concluir a consulta.")
     else:
-        consulta.status = Consulta.Status.CONCLUIDA
-        consulta.save(update_fields=("status",))
+        consulta.concluida_em = timezone.now()
+        consulta.save(update_fields=("concluida_em",))
         messages.success(request, "Consulta marcada como concluída.")
     return redirect("consulta_medico_detail", consulta_id=consulta.id)
 

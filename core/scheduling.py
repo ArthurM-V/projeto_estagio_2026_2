@@ -51,7 +51,8 @@ def horarios_disponiveis(medico, data, consulta_excluida_id=None):
     ocupados = Consulta.objects.filter(
         medico=medico,
         data_horario__range=(inicio, fim),
-        status__in=(Consulta.Status.PENDENTE, Consulta.Status.CONFIRMADA),
+        status__in=(Consulta.Status.PENDENTE, Consulta.Status.CONFIRMADO),
+        concluida_em__isnull=True,
     )
     if consulta_excluida_id:
         ocupados = ocupados.exclude(pk=consulta_excluida_id)

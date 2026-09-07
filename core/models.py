@@ -87,15 +87,14 @@ class Prontuario(models.Model):
 class Consulta(models.Model):
     class Status(models.TextChoices):
         PENDENTE = "pendente", "Pendente"
-        CONFIRMADA = "confirmada", "Confirmada"
-        CANCELADA = "cancelada", "Cancelada"
-        AUSENTE = "ausente", "Ausente"
-        CONCLUIDA = "concluida", "Concluída"
+        CONFIRMADO = "confirmado", "Confirmado"
+        CANCELADO = "cancelado", "Cancelado"
 
     paciente = models.ForeignKey(Paciente, on_delete=models.PROTECT, related_name="consultas")
     medico = models.ForeignKey(Medico, on_delete=models.PROTECT, related_name="consultas")
     data_horario = models.DateTimeField()
     status = models.CharField(max_length=12, choices=Status.choices, default=Status.PENDENTE)
+    concluida_em = models.DateTimeField(null=True, blank=True)
     observacoes = models.TextField(blank=True)
     criado_em = models.DateTimeField(auto_now_add=True)
 
@@ -110,7 +109,10 @@ class Consulta(models.Model):
         constraints = [
             models.UniqueConstraint(
                 fields=("medico", "data_horario"),
-                condition=Q(status__in=("pendente", "confirmada")),
+                condition=Q(
+                    status__in=("pendente", "confirmado"),
+                    concluida_em__isnull=True,
+                ),
                 name="medico_horario_ativo_unico",
             )
         ]
@@ -119,6 +121,10 @@ class Consulta(models.Model):
 
     def __str__(self):
         return f"{self.paciente} — {self.data_horario:%d/%m/%Y %H:%M}"
+
+    @property
+    def esta_concluida(self):
+        return self.concluida_em is not None
 
 
 class Medicamento(models.Model):

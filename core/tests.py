@@ -154,7 +154,7 @@ class AcessoAosPaineisTests(TestCase):
         )
 
     def confirmar_consulta(self, consulta):
-        consulta.status = Consulta.Status.CONFIRMADA
+        consulta.status = Consulta.Status.CONFIRMADO
         consulta.save(update_fields=("status",))
 
     def test_visitante_e_redirecionado_para_login(self):
@@ -362,15 +362,15 @@ class AcessoAosPaineisTests(TestCase):
             "itens-0-instrucoes": "",
         }
 
-        for status in (
-            Consulta.Status.PENDENTE,
-            Consulta.Status.CANCELADA,
-            Consulta.Status.AUSENTE,
-            Consulta.Status.CONCLUIDA,
+        for status, concluida_em in (
+            (Consulta.Status.PENDENTE, None),
+            (Consulta.Status.CANCELADO, None),
+            (Consulta.Status.CONFIRMADO, timezone.now()),
         ):
-            with self.subTest(status=status):
+            with self.subTest(status=status, concluida=bool(concluida_em)):
                 consulta.status = status
-                consulta.save(update_fields=("status",))
+                consulta.concluida_em = concluida_em
+                consulta.save(update_fields=("status", "concluida_em"))
 
                 respostas = (
                     self.client.post(
@@ -453,7 +453,7 @@ class AcessoAosPaineisTests(TestCase):
             reverse("consulta_administrativo_detail", args=[consulta.id]),
             {
                 "acao": "status",
-                "status": Consulta.Status.CONFIRMADA,
+                "status": Consulta.Status.CONFIRMADO,
             },
         )
 
@@ -462,7 +462,7 @@ class AcessoAosPaineisTests(TestCase):
             reverse("consulta_administrativo_detail", args=[consulta.id]),
         )
         consulta.refresh_from_db()
-        self.assertEqual(consulta.status, Consulta.Status.CONFIRMADA)
+        self.assertEqual(consulta.status, Consulta.Status.CONFIRMADO)
 
     def test_superadmin_reagenda_consulta_para_horario_disponivel(self):
         consulta = Consulta.objects.get(medico=self.medico)
@@ -542,7 +542,7 @@ class AcessoAosPaineisTests(TestCase):
 
     def test_superadmin_exclui_consulta_cancelada_apos_confirmacao(self):
         consulta = Consulta.objects.get(medico=self.medico)
-        consulta.status = Consulta.Status.CANCELADA
+        consulta.status = Consulta.Status.CANCELADO
         consulta.save(update_fields=("status",))
         self.client.force_login(self.superadmin)
 
@@ -585,13 +585,13 @@ class AcessoAosPaineisTests(TestCase):
                     ),
                     timezone.get_current_timezone(),
                 ),
-                status=Consulta.Status.CONFIRMADA,
+                status=Consulta.Status.CONFIRMADO,
             )
         self.client.force_login(self.medico.usuario)
 
         resposta = self.client.get(
             reverse("consultas_medico_filtradas"),
-            {"busca": "Paciente filtro", "status": Consulta.Status.CONFIRMADA},
+            {"busca": "Paciente filtro", "status": Consulta.Status.CONFIRMADO},
         )
 
         self.assertEqual(resposta.status_code, 200)
@@ -604,7 +604,7 @@ class AcessoAosPaineisTests(TestCase):
             reverse("consultas_medico_filtradas"),
             {
                 "busca": "Paciente filtro",
-                "status": Consulta.Status.CONFIRMADA,
+                "status": Consulta.Status.CONFIRMADO,
                 "page": 2,
             },
         )
@@ -632,7 +632,7 @@ class AcessoAosPaineisTests(TestCase):
 
     def test_medico_so_conclui_consulta_confirmada_com_atendimento(self):
         consulta = Consulta.objects.get(medico=self.medico)
-        consulta.status = Consulta.Status.CONFIRMADA
+        consulta.status = Consulta.Status.CONFIRMADO
         consulta.save(update_fields=("status",))
         self.client.force_login(self.medico.usuario)
 
@@ -644,7 +644,7 @@ class AcessoAosPaineisTests(TestCase):
             resposta, reverse("consulta_medico_detail", args=[consulta.id])
         )
         consulta.refresh_from_db()
-        self.assertEqual(consulta.status, Consulta.Status.CONFIRMADA)
+        self.assertEqual(consulta.status, Consulta.Status.CONFIRMADO)
 
         Atendimento.objects.create(consulta=consulta, sintomas="Dor persistente.")
         resposta = self.client.post(
@@ -655,7 +655,8 @@ class AcessoAosPaineisTests(TestCase):
             resposta, reverse("consulta_medico_detail", args=[consulta.id])
         )
         consulta.refresh_from_db()
-        self.assertEqual(consulta.status, Consulta.Status.CONCLUIDA)
+        self.assertEqual(consulta.status, Consulta.Status.CONFIRMADO)
+        self.assertIsNotNone(consulta.concluida_em)
 
     def test_prontuario_reune_dados_clinicos_e_nao_muda_apos_conclusao(self):
         consulta = Consulta.objects.get(medico=self.medico)
@@ -692,8 +693,8 @@ class AcessoAosPaineisTests(TestCase):
         self.assertIn(self.exame.nome, prontuario.evolucao_clinica)
         self.assertIn(self.medicamento.nome, prontuario.prescricoes)
 
-        consulta.status = Consulta.Status.CONCLUIDA
-        consulta.save(update_fields=("status",))
+        consulta.concluida_em = timezone.now()
+        consulta.save(update_fields=("concluida_em",))
         prontuario_atualizado_em = prontuario.atualizado_em
         atendimento.conduta = "Conduta que não deve entrar após a conclusão."
         atendimento.save()

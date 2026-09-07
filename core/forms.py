@@ -159,7 +159,8 @@ class AgendamentoConsultaForm(forms.Form):
             existe_conflito = Consulta.objects.filter(
                 medico=medico,
                 data_horario=data_horario,
-                status__in=(Consulta.Status.PENDENTE, Consulta.Status.CONFIRMADA),
+                status__in=(Consulta.Status.PENDENTE, Consulta.Status.CONFIRMADO),
+                concluida_em__isnull=True,
             ).exists()
 
             if existe_conflito:
@@ -251,11 +252,12 @@ class ConsultaAdministrativaForm(forms.ModelForm):
         if horario_foi_alterado and data_horario <= timezone.now():
             self.add_error("data", "Escolha uma data e horário futuros para reagendar.")
 
-        if self.instance.status in (Consulta.Status.PENDENTE, Consulta.Status.CONFIRMADA):
+        if self.instance.status in (Consulta.Status.PENDENTE, Consulta.Status.CONFIRMADO):
             existe_conflito = Consulta.objects.filter(
                 medico=self.instance.medico,
                 data_horario=data_horario,
-                status__in=(Consulta.Status.PENDENTE, Consulta.Status.CONFIRMADA),
+                status__in=(Consulta.Status.PENDENTE, Consulta.Status.CONFIRMADO),
+                concluida_em__isnull=True,
             ).exclude(pk=self.instance.pk).exists()
             if existe_conflito:
                 self.add_error(
@@ -289,11 +291,12 @@ class ConsultaStatusForm(forms.ModelForm):
 
     def clean_status(self):
         status = self.cleaned_data["status"]
-        if status in (Consulta.Status.PENDENTE, Consulta.Status.CONFIRMADA):
+        if status in (Consulta.Status.PENDENTE, Consulta.Status.CONFIRMADO):
             existe_conflito = Consulta.objects.filter(
                 medico=self.instance.medico,
                 data_horario=self.instance.data_horario,
-                status__in=(Consulta.Status.PENDENTE, Consulta.Status.CONFIRMADA),
+                status__in=(Consulta.Status.PENDENTE, Consulta.Status.CONFIRMADO),
+                concluida_em__isnull=True,
             ).exclude(pk=self.instance.pk).exists()
             if existe_conflito:
                 raise forms.ValidationError(
