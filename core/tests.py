@@ -823,6 +823,19 @@ class AcessoAosPaineisTests(TestCase):
         self.assertFalse(medico.usuario.is_superuser)
         self.assertEqual(len(senha), 10)
 
+    def test_detalhe_do_medico_exibe_acao_para_redefinir_senha(self):
+        self.client.force_login(self.superadmin)
+
+        resposta = self.client.get(
+            reverse("medico_administrativo_detail", args=[self.medico.id])
+        )
+
+        self.assertContains(resposta, "Redefinir senha")
+        self.assertContains(
+            resposta,
+            reverse("redefinir_senha_medico", args=[self.medico.id]),
+        )
+
     def test_superadmin_redefine_senha_automatica_com_composicao_esperada(self):
         senha_anterior = self.medico.usuario.password
         self.client.force_login(self.superadmin)

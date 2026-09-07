@@ -450,12 +450,21 @@ def redefinir_senha_medico(request, medico_id):
     )
 
 
-def _contexto_medico_administrativo(medico, form_edicao=None, form_confirmacao_edicao=None, form_confirmacao_desligamento=None, secao_aberta=None):
+def _contexto_medico_administrativo(
+    medico,
+    form_edicao=None,
+    form_confirmacao_edicao=None,
+    form_confirmacao_desligamento=None,
+    form_redefinicao=None,
+    secao_aberta=None,
+    usuario_atual=None,
+):
     return {
         "medico": medico,
         "form_edicao": form_edicao or MedicoCadastroForm(instance=medico),
         "form_confirmacao_edicao": form_confirmacao_edicao or ConfirmacaoRedefinicaoSenhaForm(usuario_atual=None, prefix="confirmacao_edicao"),
         "form_confirmacao_desligamento": form_confirmacao_desligamento or ConfirmacaoRedefinicaoSenhaForm(usuario_atual=None, prefix="confirmacao_desligamento"),
+        "form_redefinicao": form_redefinicao or ConfirmacaoRedefinicaoSenhaForm(usuario_atual=usuario_atual),
         "secao_aberta": secao_aberta,
         "total_consultas_medico": medico.consultas.count(),
     }
@@ -491,6 +500,7 @@ def medico_administrativo_detail(request, medico_id):
                     form_edicao=form_edicao,
                     form_confirmacao_edicao=form_confirmacao_edicao,
                     secao_aberta="edicao",
+                    usuario_atual=request.user,
                 ),
                 status=400,
             )
@@ -514,11 +524,16 @@ def medico_administrativo_detail(request, medico_id):
                     medico,
                     form_confirmacao_desligamento=form_confirmacao_desligamento,
                     secao_aberta="desligamento",
+                    usuario_atual=request.user,
                 ),
                 status=400,
             )
 
-    return render(request, "core/medico_administrativo_detail.html", _contexto_medico_administrativo(medico))
+    return render(
+        request,
+        "core/medico_administrativo_detail.html",
+        _contexto_medico_administrativo(medico, usuario_atual=request.user),
+    )
 
 
 @login_required
