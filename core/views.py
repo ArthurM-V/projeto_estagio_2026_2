@@ -852,3 +852,39 @@ def emitir_receita(request, consulta_id):
 
 def session_expired_view(request):
     return render(request, "core/session_expired.html")
+
+
+PAGINAS_DE_ERRO = {
+    403: {
+        "titulo": "Acesso não autorizado",
+        "mensagem": "Você não tem permissão para acessar este conteúdo.",
+    },
+    404: {
+        "titulo": "Página não encontrada",
+        "mensagem": "O endereço informado não existe ou pode ter sido movido.",
+    },
+    500: {
+        "titulo": "Não foi possível concluir a solicitação",
+        "mensagem": "Ocorreu um erro inesperado. Tente novamente em alguns instantes.",
+    },
+}
+
+
+def error_page(request, status, exception=None):
+    contexto = {
+        "status": status,
+        **PAGINAS_DE_ERRO[status],
+    }
+    return render(request, "core/error_page.html", contexto, status=status)
+
+
+def error_403(request, exception=None):
+    return error_page(request, status=403, exception=exception)
+
+
+def error_404(request, exception=None):
+    return error_page(request, status=404, exception=exception)
+
+
+def error_500(request):
+    return error_page(request, status=500)

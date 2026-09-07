@@ -1,7 +1,7 @@
 from datetime import date, datetime, time, timedelta
 
 from django.contrib.auth import get_user_model
-from django.test import TestCase
+from django.test import SimpleTestCase, TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 
@@ -19,6 +19,17 @@ from .models import (
     SolicitacaoExame,
 )
 from .scheduling import data_maxima_agendamento, horarios_disponiveis
+
+
+class PaginasDeErroTests(SimpleTestCase):
+    @override_settings(DEBUG=False)
+    def test_rota_inexistente_renderiza_pagina_404_personalizada(self):
+        resposta = self.client.get("/rota-que-nao-existe/")
+
+        self.assertEqual(resposta.status_code, 404)
+        self.assertTemplateUsed(resposta, "core/error_page.html")
+        self.assertContains(resposta, "Erro 404", status_code=404)
+        self.assertContains(resposta, "Página não encontrada", status_code=404)
 
 
 class AgendamentoConsultaTests(TestCase):
