@@ -32,7 +32,7 @@ Não há variáveis de ambiente obrigatórias para executar o projeto localmente
 Clone o repositório e entre na pasta do projeto:
 
 ```bash
-git clone <URL_DO_REPOSITORIO>
+git clone <https://github.com/ArthurM-V/projeto_estagio_2026_2.git>
 cd projeto_estagio_2026_2
 ```
 
